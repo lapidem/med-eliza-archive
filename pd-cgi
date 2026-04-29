@@ -1,0 +1,2569 @@
+#!/bin/bash
+#pd-cgi
+#pubmeddic cgi version
+### 0.1 getting ARGS
+### 0.2 dealing with multiple keyword
+### 0.3 kwic on/off
+### 0.4 multi-user support
+### 0.5 bug-fix: avoid access to kwic without keyword
+### 0.6 table output
+### 0.7 hyperlink by display which function was extended
+### 0.8 bug fixed
+### 0.9 bug fixed
+### 1.0 frequency pointer
+### 1.1 hyper function switch
+### 1.2 abstract function
+### 1.3 showabst with link to pubmed and doi
+### 1.4 transition among pages has bee improved
+### 1.5 table was used for sentences that include hyperlink
+### 1.6 bug fixed: $oRES; saving original $RES
+### 1.7 bug fixed: $OPT is not included in the QUERY for kwic number
+### 1.8 strict search for multiple search: grepline fixed
+### 1.9 multiple key right side sort was fixed
+### 1.10 navigation bug fixed, but still compromised
+### 1.11 multiple keywords search (function of pmed)
+### 1.12 caching of multiple keyword search
+### 1.13 clearing cache function
+### 1.14 restore multi search; history function
+### 1.15 navigation of the multi search
+### 1.16 url decode
+### 1.17 private cache implemented
+### 1.18 pd.conf was introduced
+### 1.19 database updated date show
+### 1.20 kwic bug fixed: one extra line bug
+### 1.21 linking words for multiple key search
+### 1.22 bug fixed: $OPT; Eliza top link cannot call kwic
+### 1.23 nested multiple keyword search
+### 1.24 link display bug fixed
+### 1.25 minor bug fixed, copyright modified
+### 1.26 ing(), reset button
+### 1.27 multiple background handling, reloading
+### 1.28 multiple key caching
+### 1.29 do not multiple key, instead reload method
+### 1.30 InLine search and InLine linking analysis
+### 1.31 InLine link's hyperlink embedding InLine search caller
+### 1.32 history includes multi and inline search
+### 1.33 Capital in the first letter, loose enhancement implemented
+### 1.34 cocatenation of keywords with '+'
+### 1.35 link dictionaries were separated: this is a bug
+### 1.36 kwic bug fixed for key2: see the comment in the code
+### 1.37 mgrepsed, lgrepsed bug fixed; <strong> tag hampered consequential grep,
+###      so, grep and sed was separated
+### 1.38 remove TAGs in the dictionary: rdictionary
+### 1.39 remove '.' in the keyword for kwic Search
+### 1.40 remove TAGs in the phrases: 1.38 was not enougth
+### 1.41 remove TAGS again: /<\/?[^>]*>/ is the answer
+### 1.42 InLine for one keyword bug fixed
+### 1.43 InLine SCALE lSCALE was fixed as 100
+### 1.44 style was set as using #wrapper
+### 1.45 major buttons are ajax
+### 1.46 most buttons are ajax or js
+### 1.47 links in "link" "InLine link" are now using ajax
+### 1.48 jquery: not from CDN
+### 1.49 javascript bug fixed
+### 1.50 cleaning codes (still partial),
+### 1.51 background job removed
+### 1.52 concatenation bug fixed
+### 1.53 navigations were fixed: because form replace space with +
+### 1.54 hyperlink in link was incorrect when OPT=left, right: fixed(display)
+### 1.55 keyevent (CR) for #res caputure routine added
+### 1.56 PAGE option minor bug fixed
+### 1.57 kwic private history was supported
+### 1.58 restore button was removed
+### 1.59 history function changed as all history is private
+### 1.60 setkey and addkey hyperlink for link and InLine links
+### 1.61 cclear bug fixed
+### 1.62 setkey and addkey was mutually changed (display)
+### 1.63 debugging function for the interface between bash and js
+### 1.64 bug in calling frqpger fixed, phrase in the title was not shown properly
+### 1.65 <strong></strong> tag was replaced by _<_ _>_
+### 1.66 addkey addkeybfore supported for link ,InLine link, freq.
+### 1.67 default search after kwic search was set to InLine search
+###         Show all was supported for InLine search
+### 1.68 link in link was ksearch: amended with multi()
+### 1.69 decorations
+### 1.70 decorations improved
+### 1.71 link(), inlinlink(), select bug fixed
+### 1.72 restore button revived
+### 1.73 terminal's font was set as fixed fonts
+### 1.74 <pre> was changed to preCode01 class
+### 1.75 crossTable output
+### 1.76 wordnet could not capture the res: bug fixed
+### 1.77 gene output lint nees space, so put space after comma
+### 1.78 kwic mode navigation error fixed
+### 1.79 ssel (search selected)
+### 1.80 kwic-core bug fixed
+### 1.81 kwic revised as handling multiple words and exact match
+### 1.82 kwic and kwic-core bugs fixed 
+### 1.83 strict search button
+### 1.84 triplet words: uses pubfn.dic
+### 1.85 triplet button
+### 1.86 remove TAGs from _grepline
+### 1.87 concatenate unConcatenate button
+### 1.88 hyperlink in one-word with + was fixed
+### 1.89 button arrange changed
+### 1.90 codes were cleaned
+### 1.91 copyright was changed to lapidem
+
+[ -f pd.conf ] && . pd.conf  ### configuration file 
+REVISION="rev. 1.91"
+#${DEBUG:="on"}
+#CONF="/pubmed.conf"
+SCALE=500  #search limit, set depending on the machine performance
+FACOTR=2  #Tne number of abstracts displayed on Multi page
+
+if [ ! $COPYRIGHT ]; then COPYRIGHT="(c)lapidem 2025"; fi
+
+debug(){
+    if [ "on" = $DEBUG ]; then echo "$@<br>"; fi
+}
+
+pdinitialize(){
+    if [ ! -e "/tmp/pd/" ]; then mkdir "/tmp/pd/"; fi
+    if [ ! -e "/tmp/kw/" ]; then mkdir "/tmp/kw/"; fi
+#    if [ -e $CONF ]; then
+#	DEBUG=`cat $CONF | awk '! /^# {if ($1 ~ /DEBUG/) { print $2 }}'`
+#	if [ "off" = $DEBUG ]; then DEBUG=""; fi
+#    fi
+}
+
+### TO DO
+# show the updated date of the database
+# setting page
+# conf file: done at 1.17
+# arrow key: fixed, still compromised : 1.10
+# multiple search dictionaries should be revised: 1.9
+# multiple key search failure: done at 1.8
+# kwic left is not dealt with: done at 1.7
+# embed kwic hyperlink: done at 0.7
+# embed link to abstract: done at 1.2
+# wordnet button: done
+
+### revisions of pubmeddic (console version)
+#filter to make dictionary from standard input
+### 1.0: pubmeddic -p
+### 1.1: pubmeddic -m: make dictionary
+### 1.2: default pager of dictionary
+### 1.3: bug fixed for not displaying phrases
+### 1.4: pubmeddic -a keyword
+### 1.5: pubmeddic -k keyword: kwic, pubmeddic -A keyword (with kwic)
+### 1.6: pubmeddic: now use reversed pubf.dic, and can call -k option
+### 1.7: equipped with pager by script, now switch l/r align
+### 1.8: pager interface was changed as like ELIZA system
+### 1.9: copyright declaration
+### 1.10: prior/next words frequency
+### 1.11: words frequency: jump to the instances
+### 1.12: pdic: searching by the rank number
+### 1.13: kwic toggle mode supported
+### 1.14: searchKWIC from kwic mode supported
+### 1.15: wordnet was implemented
+### 1.16: gene95 was implemented; requires 'locate'
+### 1.17: TreeTagger (tte) implemented; requires 'tte'
+### 1.18: verb pager
+### 1.19: associated word (link) page
+### 1.20: caching associated word dictionary
+### 1.21: 2-word phrase bug partially fixed
+### 1.22: caching kwic
+### 1.23: kwic and linking words search background job
+### 1.24: dealing direct keyword input: now no need of .[?]
+### 1.25: dictionary was reduced as the freq is less than 100
+### 1.26: bug fix: KEY is effective for direct keyword search
+### 1.27: making of linking words uses kwic search cache
+### 1.28: history function
+### 1.29: help function
+
+#---------------------------
+# kwic algorithm
+# find a right and a left word of the keyword: rword, lword
+# make freq dict (of right and lef side of keyword) rfreq[rword], lfreq[lword]
+# make arrays of right and left side substring of line i: rstr[i], lstr[i] 
+# make arrays of right and left side words of line i: rword[i], lword[i]
+# END
+# add tags to the sentence:
+#               1          2                  3     4    5     6     7     8
+# tmpline[i]= ind(char) position(str array) lfreq rfreq lword rword rstr sentence
+# right side: sort -k4nr,4nr -k7 -k3nr,3nr
+# left side : sort -k3nr,3nr -k7 -k4nr,4nr
+# tmpline: /tmp/kwic
+# pager temporary file=/tmp/rpage, lpage
+#--------------------------
+####### sided word dictionary algorithm
+# read templine[i] (/tmp/kwic)
+# make dictionary having/ structure: freq word
+# make tmporary file /tmp/dic
+# sort by freq |uniq
+# make tempdic /tmp/rdic, ldic
+
+WIDTH=100
+#WIDTH=90
+#THRESH=200 #threshold of frequency
+THRESH=10 #threshold of frequency
+hLIMIT="32"
+VERSION="ELIZA cgi-bash version $REVISION"
+SUMMARY="- Medical <strong>E</strong>nglish <strong>LI</strong>nking keywords finder for the PubMed <strong>Z</strong>ipped <strong>A</strong>rchive (ELIZA) -"
+#COPYRIGHT="$VERSION (c)sirasawa 2019"
+CGI="/cgi-bin/pd-cgi"
+## OPT killed in cgi version
+#OPT=$1
+PUBXML2TXT="/tmp/pubxml2txt"
+XMLDIR="pubmedxml/"
+XMLLIST="pubmedxml/pubmedxml.lst"
+LOG="/tmp/pubmed.log"
+PUBYEAR="pubyear"
+PUBF="pubf" #compile pub file base name
+PUBFDIC="pubf.dic"
+PUBFVDIC="pubfv.dic"
+PUBFNDIC="pubfn.dic" ## triplet words dic
+#TMPF="/tmp/pubmeddic"
+TMPF="/tmp/pd/pubmeddic"
+TMPFinline="/tmp/pd/inlinedic"
+TMPFmulti="/tmp/pd/multidic"
+#TMPLINE="/tmp/kwic"
+TMPLINE="/tmp/kw/kwic"
+#RPAGE="/tmp/rpage"
+RPAGE="/tmp/kw/rpage"
+LPAGE="/tmp/kw/lpage"
+RKWIC="/tmp/kw/rkwic"
+LKWIC="/tmp/kw/lkwic"
+RDIC="/tmp/kw/rdic"
+LDIC="/tmp/kw/ldic"
+#ENHI="\033[01m" #intense
+ENHI="<strong>" #intense
+EI=$ENHI
+ENH="\033[07m" #reverse
+#ENHe="\033[00m"
+ENHe="</strong>"
+Ee=$ENHe
+#HLINE="37"
+HLINE="42"
+PSIZE="40" ## pager height
+SSIZE="10" ## shrinked $PSIZE
+GENEDIC=`locate gene-utf8.txt|awk 'NR==1'`
+if [ ! $GENEDIC ]; then GENEDIC="${XMLDIR}gene-utf8.txt"; fi
+WN=`which wn`
+TTE=`which tte`
+
+
+export LANG=C
+
+help(){
+    cat <<-EOF
+$COPYRIGHT
+    pubmeddic: an interface of pubdic showing kwic search
+    pubmeddic -p: search abstracts of *pub* file"
+    pubmeddic -m: make $PUBFDIC"
+    pubmeddic -v: make verb dic $PUBFVDIC from $PUBFDIC"
+    pubmeddic -a keyword: report associated words"
+    pubmeddic -k keyword: kwic output of keyword"
+    pubmeddic -A keyword: report associated words with kwic output"
+EOF
+    exit
+}
+
+
+#### make dictionary from pubf.txt
+###     which is made of pubmed -U
+makedic(){
+    awk '
+    BEGIN{
+	cwords="*, #, %, DOI:, However, then after two RESULTS: than = can our did had three within could well one only most all more agaist However they between  during into - been from their other such were may these be have of the in and a to is that as with by or was for which on  we has an when also are both but not its this using via"
+
+    }
+    {
+	split($0, wrd)
+	limit=length(wrd)
+	for(i=1;i<=limit;i++){
+	    if( ! index(tolower(cwords), tolower(wrd[i]))){
+		word[ wrd[i] ]++
+		if( i < length -1 ){
+		    phrs = wrd[i] " " wrd[i+1]; word[ phrs ]++
+#		    phrs = phrs " " wrd[i+2]; word[ phrs ]++
+#		    phrs = wrd[i+1] " " wrd[i+2]; word[ phrs ]++
+		}
+	    }
+	}
+    }
+
+    
+    END {
+	cmd="sort -n"
+	for( w in word ){
+	    printf("%d %s\n", word[w], w) 
+	}
+	close(cmd)
+    }'
+}
+
+
+### display dictionary words for the top menu of ELIZA
+### no more used?
+disp(){  # $2 records from $1
+    TILL=$(( $1 + $2 -1 ));
+    head -$TILL $PUBFDIC |
+    awk -v strt=$1 -v lines=$2 '
+    BEGIN{
+	ENHI="<strong>" #intense
+	ENHe="</strong>"}
+#    NR>=strt { print  NR, $2, $3 }
+    NR>=strt && ($2 ~ /^[!-~]*$/) { print  NR, $2, $3 }
+#    NR>=strt { print  ENHI NR ENHe, $2, $3 }
+    ' |column -c $WIDTH
+} #disp
+
+vdisp(){ # $2 records from $1
+    vTILL=$(( $1 + $2 -1 ));
+    head -$vTILL $PUBFVDIC |
+    awk -v strt=$1 -v lines=$2 '
+    BEGIN{
+	ENHI="<strong>" #intense
+	ENHe="</strong>"}
+#    NR>=strt { print  NR, $1, $2 }
+#    NR>=strt { print  NR, $2, $3 }
+    NR>=strt && ($2 ~ /^[!-~]*$/) {
+	print  NR, $2, $3
+    }
+#    NR>=strt { print  ENHI NR ENHe, $2, $3 }
+    ' |column -c $WIDTH 
+}
+
+# primarily developed for associated words
+# it can be replaced with disp or vdisp
+###    output "line" lines from "strt"
+### output: [freq] hyperlink_to_kwic
+### usage: display start lines dictionary column_n show_freq
+display(){ # $3:dictionary file, $4: column, $5: show freq
+    TILL=$(( $1 + $2 -1 ));
+#    TILL=$(( $1 + $2 ));
+    if [ $4 ]; then COL=$4; else COL="4"; fi
+    if [ $5 ]; then FR="1"; else FR="0"; fi
+#    debug $1 $2 $3 $RES #### debug
+#    startpre
+    head -$TILL $3 |
+    awk -v strt=$1 -v line=$2 -v key="$oRES" -v freq="$FR" -v opt=$OPT -v page=$PAGE '
+    BEGIN{
+	ENHI="<strong>" #intense
+	ENHe="</strong>"
+	position=1
+    }
+    NR>=strt && ($2 ~ /^[!-~]*$/) {
+	if( $3 == "" ) { name=$2; } else {name=$2 "+" $3 }
+#	query="?RES=" $2 "+" $3 "&PAGE=kwic"
+	_res= $2 "+" $3 "+" $4; sub(/\++$/,"",_res);
+#	query="?RES=" $2 "+" $3 "+" $4 "&PAGE=kwic"
+	query="?RES=" _res "&PAGE=kwic"
+#	hyper="<a href=/cgi-bin/pd-cgi" query "&OPT=right>" $2 " " $3 "</a>"
+#	ohyper="<a href=/cgi-bin/pd-cgi" query "&OPT=right>" $2 " " $3 "</a>"
+	ohyper="<a href=/cgi-bin/pd-cgi" query "&OPT=right>" $2 " " $3 " " $4"</a>"
+	hyper= "<a id=L" NR " href=# name=" name
+	if( opt == "right" )
+	    hyper= hyper " onclick=ing();addkey(this);ksearch();>"
+	else if( opt == "left" )
+	    hyper= hyper " onclick=ing();addkeybefore(this);ksearch();>"
+        hyper= hyper name "</a>"
+	if( opt == "right" ) hyper = "<img src=/images/plus.png>" hyper
+	else if( opt == "left" ) hyper = hyper "<img src=/images/plus.png>" 
+#	hyper="<a href=/cgi-bin/pd-cgi" query "&OPT=right>" $2 " " $3 "</a>"
+	fquery="?PAGE=kwic&START=" position "&RES=" key "&OPT=" opt
+	pointer="<a href=/cgi-bin/pd-cgi" fquery ">" NR  "</a>"
+	### multiple key pointer
+	mpointer="<a href=/cgi-bin/pd-cgi?RES=" key "+" $2 "+" $3
+	gsub(",","%2C",mpointer)
+#	mpointer=mpointer "&PAGE=multi>" $2 " " $3 "</a>"
+	lpointer=mpointer "&PAGE=inline onclick=\"ing();inline();\">" $2 " " $3 "</a>"
+#	nlpointer= "<a id=L" NR " href=# onclick=ing();addkey(this);inline();>" $2 " " $3 "</a"
+#	nlpointer= "<a id=L" NR " href=# name=" $2 "+" $3 
+	nlpointer= "<img src=/images/plus.png><a id=L" NR " href=# name=" name
+	nlpointer= nlpointer " onclick=ing();addkey(this);inline();>"
+#	nlpointer= nlpointer NR "</a>"
+	nlpointer= nlpointer $2 " " $3 "</a>"
+#	nmpointer= "<a id=L" NR " href=# name=" $2 "+" $3
+	nmpointer= "<img src=/images/plus.png><a id=L" NR " href=# name=" name
+	nmpointer= nmpointer " onclick=ing();addkey(this);multi();>"
+#	nmpointer= nmpointer " onclick=ing();addkey(this);ksearch();>"
+#	nmpointer= nmpointer NR  "</a>"
+	nmpointer= nmpointer $2 " " $3 "</a>"
+#	mpointer=mpointer "&PAGE=multi onclick=ing();>" $2 " " $3 "</a>"
+	mpointer=mpointer "&PAGE=kwic onclick=ing();>" $2 " " $3 "</a>"
+#	kpointer="<a id=K" NR " name=" $2 "+" $3 " href=# onclick=ing();setkey(this);ksearch()>" NR  "</a>"
+#	kpointer="<a id=K" NR " name=" $2 "+" $3
+	kpointer="<a id=K" NR " name=" name
+	kpointer= kpointer " href=# onclick=ing();setkey(this);ksearch()>"
+#	kpointer= kpointer $2 " " $3 "</a>"
+	kpointer= kpointer NR "</a>"
+	if ( $2 ~ /null/ ) { hyper="*null*" }
+	if( freq ){
+#	    if( opt == "left" || opt == "right" )
+	    if( page == "kwic" )   ### rev1.54 changed for link confusion
+		printf(" (%s)%s %s \n", pointer, $1, hyper)
+	    	### multiple key pointer
+	    else if( opt == "inline" )
+		printf("  %s)%s %s\n", kpointer, $1, nlpointer) 
+#		printf("  %s)%s %s\n",nlpointer, $1, kpointer) 
+	    else
+		printf("  %s)%s %s\n", kpointer, $1, nmpointer) 
+#		printf("  %s)%s %s\n",nmpointer, $1, kpointer) 
+	}
+	else  printf("  %s)%s \n",NR, ohyper)
+	position=position+$1
+    }
+    '| crossTable $COL
+#    '| table $COL
+} ### display
+
+
+### pager display engine
+### used for kwic
+###    output "line" lines from "strt" 
+pdisp(){
+#    awk -v strt=$1 -v line=$2 -v key=$RES -v hyp=$HYP -v kwic=$KWIC '
+#    awk -v strt=$1 -v line=$2 -v key=$KEY -v hyp=$HYP -v kwic=$KWIC '
+#    awk -v strt=$1 -v line=$2 -v key=$oRES -v hyp=$HYP -v kwic=$KWIC '
+    awk -v strt=$1 -v line=$2 -v key=$oRES -v hyp=$HYP -v kwic=$KWIC -v opt=$OPT '
+    BEGIN{
+	ENHI="<strong>" #intense
+	ENHe="</strong>"
+	query="<a href=/cgi-bin/pd-cgi?RES=" key "&PAGE=kwic&KWIC=off"
+#	query="<a href=/cgi-bin/pd-cgi?RES=" key "&PAGE=kwic&KWIC=" kwic
+	query=query "&ABS=ON&OPT=" opt
+    }
+    NR>=strt && NR<strt+line {
+	if( hyp == "off" )
+	    	printf("%s)%s\n",NR,$0)
+	else if ( hyp == "on" ){
+	    hyper=query "&START=" NR ">" NR "</a>"
+	    printf("%s%s) %s%s\n",ENHI,hyper,ENHe,$0)
+	}
+    }'	    
+}
+
+### kwic old routine
+### kwic makes /tmp/kwic
+###     which contains information enough to make kwic output
+###     by kwic-core
+kwic(){ ### parameter is a keyword
+    awk -v key="$1" -v key2="$2" '
+    BEGIN{ num =1 }
+    $0 !~ /^\*/ && $0 !~ /^%/ { ### skip source info and title
+	sub(/^- /,"") ### remove the tag of abstract
+	split($0, line, /\../)
+	for(i=1; i<=length(line); i++){ ### for each line i
+	    loc = index(tolower(line[i]), tolower(key))
+	    if(loc) {
+		split(line[i], word)
+		for(j=1; j<=length(word); j++){ ### for each word j
+		    if( pos=index(tolower(word[j]),tolower(key))){
+			### multiple key; next word must be key2
+			### rev 1.36 thne next word must contain key2
+#			if(key2 && word[j+1] != key2) break ###rev1.9
+			if(key2) {
+			    pos2=index(tolower(word[j+1]), tolower(key2))
+			    if ( ! pos2 ) {break}
+			}
+			ind[num]=loc; position[num]=j;
+			if (j>1) {
+			    lword[num]= word[j-1]; lfreq[ lword[num] ]++ }
+			else {
+#			    lword[num]= "<null>"; lfreq["<null>"]++ }
+			    lword[num]= "*null*"; lfreq["*null*"]++ }
+			if (j<length(word)){
+			    if(key2 && (j+2)<=length(word)){  ### rev1.9
+				rword[num]=word[j+2]; rfreq[ rword[num] ]++
+			    }else{
+				rword[num]=word[j+1]; rfreq[ rword[num] ]++
+			    }
+			}else {
+#			    rword[num]="<null>"; rfreq["<null>"]++ }
+			    rword[num]="*null*"; rfreq["*null*"]++ }
+			lstr[num]=substr(line[i], 1, loc -1)
+			rstr[num]=substr(line[i], loc, length(line[i])-loc+1 )
+			break
+		    }
+		}
+		num++
+	    }
+	}
+    }
+    END{
+#	for(i=1; i<=num; i++){  
+	for(i=1; i<num; i++){  ## rev 1.20
+	    printf("%d %d %d %d %s %s %s_:_%s%s\n", ind[i], position[i],
+		   lfreq[lword[i]], rfreq[rword[i]], lword[i], rword[i],
+		   rstr[i],lstr[i], rstr[i] )
+	}
+    }'  
+} ### kwic: now obsolete use splitline | _kwic
+
+### kwic makes /tmp/kwic
+### treat input as a line
+###     which contains information enough to make kwic output
+###     by kwic-core
+_kwic(){ ### parameter is a keyword
+#    awk -v key="$1" -v key2="$2" '
+    awk -v key="$1" -v SRCH="$SRCH" '
+    BEGIN {
+	split(key, keywords); nKey=length(keywords);
+	num=1
+    }
+    function setvalue(ind){
+	if(ind > 1 ){
+	    lword = words[ind - 1 ]; lfreq[lword]++ }
+	else {
+	    lword= "*null*"; lfreq["*null*"]++ }
+	if( ind < length(words) - nKey + 1 ) {
+	    rword=words[ind + nKey]; rfreq[ rword ]++}
+	else {
+	    rword="*null*"; rfreq["*null*"]++ }
+	position = ind;  ### words[i] is the target key
+	loc = 0;
+	for(pos=1; pos<position; pos++){
+	    loc = loc + length(words[pos]) + 1
+	}
+	found = 1; loc++;
+	lstr=substr(line, 1, loc -1)
+	rstr=substr(line, loc, length(line)-loc+1 )
+    }
+    {
+	line=$0; gsub(/\.$/,""); ### avoid . in the last word
+	split($0, words);
+#	print key line; ##debug
+	found = 0;
+	for(i=1; i<=length(words)-nKey+1; i++){
+	    target = words[i];
+	    for(ind=1; ind<nKey; ind++){
+		target = target " " words[i + ind];
+	    }
+	    if(toupper(target) == toupper(key)){
+		found = 1; setvalue(i); break;
+	    }
+	}
+	if( SRCH != 'strict' && ! found ){
+	    ind = index(toupper(line), toupper(key));
+	    if(ind){
+		location=0; found=1;
+		for(i=1; i<=length(words)-nKey+1; i++){
+		    location=location+length(words[i]) + 1;
+		    if(location >= ind){
+			setvalue(i); loc=ind; break;
+		    }
+		}
+	    }
+	}
+	if( found ) {
+	    aLoc[num]=loc; aPosition[num]=position;
+	    aLword[num]=lword; aRword[num]=rword;
+	    aRstr[num]=rstr; aLstr[num]=lstr;
+	    num++;
+	} 
+	### if not found the keyword is embeded in the word; e.g. T-cells
+	### in this version discarded 1.82
+    }
+    END{
+	for(i=1; i<num; i++){
+#	printf("%d %d %d %d %s %s %s_:_%s%s\n", ind, position,
+	    printf("%d %d %d %d %s %s %s_:_%s%s\n", aLoc[i], aPosition[i],
+	       lfreq[aLword[i]], rfreq[aRword[i]], aLword[i], aRword[i],
+	       aRstr[i], aLstr[i], aRstr[i])
+	}
+    }'  
+} ### _Kwic
+
+### format of kwic: output of kwic
+### ind(char) position(string) lfreq rfreq lword rword rstring
+#    _:_sentence
+## lr=l/r/s: left, right, simple
+kwic-core(){ 
+#   remove space between $2 and $3 when $3 is empty
+    kSTR=`echo "$2 $3" | sed 's/[ ]$//'`
+    awk -v lr=$1 -v key="$kSTR" -v HLINE=$HLINE 'BEGIN{
+	ENHI="<strong>" #intense
+	ENHe="</strong>"
+	FS="_:_"
+	count=1
+	_Key = toupper(substr(key, 1,1)) substr(key,2,length(key)-1)
+    }
+    {
+	split($1,info," ");
+	if(lr == "l") { freq = info[3]} else { freq = info[4]}
+	ind=info[1]
+    	sentence=$2
+	if(lr == "s") {### simple output
+	    gsub(key, ENHI key ENHe, sentence)
+	    gsub(_Key, ENHI _Key ENHe, sentence)
+	    printf("%s", sentence)
+	} else {
+#	    stuff = ind - HLINE 
+	    stuff = HLINE - ind + 1
+#	    if( stuff < 0 ) {
+	    if( stuff > 0 ) {
+#		for(i=1; i<=2-stuff; i++) printf("%s"," ")
+		for(i=1; i<=stuff; i++) printf("%s"," ")
+		printf("%s",substr(sentence,1,ind-1))
+	    }else{
+		stuff = ind -1 - HLINE
+#		printf("%s",substr(sentence,stuff-1,HLINE+1))
+		printf("%s",substr(sentence, stuff+1, HLINE))
+	    }
+#	    rest = length(sentence) - ind
+	    rest = length(sentence) - ind + 1   ### for removed .$
+	    if( rest > HLINE ) rest = HLINE
+	    right=substr(sentence,ind,rest)
+	    sub(key, ENHI key ENHe, right)
+	    sub(_Key, ENHI _Key ENHe, right)
+	    printf("%s",right)
+	}
+	print ""
+	count++
+    }'
+} ### kwic-core
+
+rdictionary(){ ### make random dictionary
+    #### format: frequency word
+    awk '
+    BEGIN{
+	cwords="<strong> <br> <a PMID: PMID* <strong>* , #, %, DOI:, However, then after two RESULTS: than = can our did had three within could well one only most all more agaist However they between  during into - been from their other such were may these be have of the in and a to is that as with by or was for which on  we has an when also are both but not its this using via"
+    }
+    {
+	split($0, wrd);
+	for(i=1; i<=length(wrd); i++){
+	    if(length(wrd[i]) > 17) break
+	    ### remove TAG rev.1.38
+#	    gsub(/<\/?.?>/,"", wrd[i]);
+	    gsub(/<\/?[^>]*>/,"", wrd[i]);
+	    gsub(/&lt|&gt/,"", wrd[i]);
+	    if( ! index(tolower(cwords),tolower(wrd[i])) && wrd[i] !~ /[0..9]+/ ){
+		    word[ wrd[i] ]++
+		if( i < length -1 ){
+		    ### remove TAG rev.1.40
+#		    gsub(/<\/?.?>/,"", wrd[i+1]);
+		    gsub(/<\/?[^>]*>/,"", wrd[i+1]);
+		    phrs = wrd[i] " " wrd[i+1]; word[ phrs ]++
+		}
+	    }
+	}
+    }
+    END {
+	for( w in word){
+	    print word[w], w
+	}
+    }'
+} #rdictionary
+
+grepline(){ ### $1 $2 is keyword
+    if [ $2 ]; then KEYWORD="$1 $2"; else KEYWORD="$1"; fi
+    #    KEYWORD=`echo $KEYWORD | tr '+' ' '`
+    _KEYWORD=$KEYWORD
+    KEYWORD=`echo $KEYWORD | tr '+.' ' '`   ### rev1.39 remove '.'
+    #    KEYWORD=`echo $KEYWORD | tr '.' ' ' |sed 's/+/\\s/g'`
+    if [ $SRCH = "strict" ]; then
+	GREP="grep -iwF --line-buffered -e "
+    else
+	GREP="grep -iF --line-buffered -e "
+    fi
+#    GREPOPT="-iwF --line-buffered -e"
+#    GREPOPTw="-iwF --line-buffered -e"
+    if [[ "$_KEYWORD" =~ ^\+ ]]; then GOPT=$GREPOPTw; else GOPT=$GREPOPT; fi
+     #    grep -iF --line-buffered -e "${KEYWORD}" |head -$SCALE |
+#   grep '^-' |sed 's/^-//g' |
+    grep '^-' |sed 's/^-[ ]//g' |
+       sed 's/\. /\.\n/g' |
+#      grep $GOPT "${KEYWORD}" |head -$SCALE 
+      $GREP "${KEYWORD}" |head -$SCALE 
+}
+
+greplineP(){ ### $1 $2 is keyword
+    if [ $2 ]; then KEYWORD="$1 $2"; else KEYWORD="$1"; fi
+#    KEYWORD=`echo $KEYWORD | tr '+' ' '`
+    KEYWORD=`echo $KEYWORD | tr '+.' ' '`   ### rev1.39 remove '.'
+#    KEYWORD=`echo $KEYWORD | tr '.' ' ' |sed 's/+/\\s/g'` 
+     _key1=`echo $1 | tr '+' ' '`
+     _key2=`echo $2 | tr '+' ' '`
+    grep -iF --line-buffered -e "${KEYWORD}" |head -$SCALE |
+    awk -v key="$_key1" -v key2="$_key2" '
+    BEGIN{
+	ENHI="\033[01m" #intense
+	ENHe="\033[00m"
+    }
+    {
+	split($0, line, /\../)
+#	key= key key2
+#	print key
+	for(i=1; i<=length(line); i++){
+	    pos=index(tolower(line[i]),tolower(key))
+	    if(pos){
+		#### rev 1.8
+		if (key2) {
+		    pos2=index(tolower(line[i]),tolower(key2))
+		    if(pos2) {
+			#### for more strict search
+			#### length of the key and key2 should be
+			#### confirmed, but not yet in rev 1.8
+			####       |pos |pos2; delta=4+1(for space)
+			#### e.g.) used in
+			delta = pos2 - pos
+			if( delta == length(key)+1 ){
+#			    printf("%d,%d,%s:", pos, pos2, key2)
+			    print line[i] "."
+			    break
+			}
+		    }
+		} else {
+		    #### ver 1.8 upto here
+#		sub(key, ENHI key ENHe, line[i])
+		    print line[i] "."
+		    break   ### ver 1.8
+		}
+	    }
+	}
+    }'
+} #grepline
+
+sgrepline(){ ### short grepline; $1 $2 is keyword
+    if [ $2 ]; then KEYWORD="$1 $2"; else KEYWORD=$1; fi
+#    idctr | grep -iF --line-buffered -e "$KEYWORD" |head -40 |
+    grep -iF --line-buffered -e "$KEYWORD" |head -40 |
+    awk -v key=$1 -v key2=$2 '
+    {	split($0, line, /\../)
+	for(i=1; i<=length(line); i++){
+	    pos=index(tolower(line[i]),tolower(key))
+	    if(pos) print line[i] "."
+	}
+    }'
+} #sgrepline
+
+
+frqpager(){ ###l/r PSTART PLINE
+    PSTART=$2; PLINE=$3; PRES="yes"
+    if [ "" = $PSTART ]; then PSTART=1; fi
+    if [ "" = $PLINE ]; then PLINE=$PSIZE; fi
+    if [ "r" = $1 ]; then PPAGE=$RDIC; PTAG="next (right) word to";
+    else PPAGE=$LDIC; PTAG="prior(left) word to"; fi
+    #    while [ ! $PRES = "q" ]; do
+    echo  "${EI}[frequency of $PTAG $KEY]${Ee}"
+    PEND=`cat $PPAGE|awk 'END{print NR}'`
+    PTILL=`cat $PPAGE | awk '$1>1 {ptill=NR -1} END{print ptill}'`
+#    head -$(($PSTART+$PLINE)) $PPAGE | pdisp $PSTART $PLINE |column -x
+#    head -$(($PSTART+$PTILL)) $PPAGE |
+#    pdisp $PSTART $PTILL |
+#    table 4
+#    display $PSTART $PTILL $PPAGE 5 1
+    display $PSTART $PTILL $PPAGE 4 1
+#    column -x -c $WIDTH
+    #        read PRES
+    hint
+    return
+} ### frqpager
+
+pager(){ ###l/r PSTART PLINE
+#    PSTART=$2; PLINE=$3; KEY=$4; PRES="yes"; KWIC="";
+    PSTART=$2; PLINE=$3; KEY=$4; PRES="yes";
+    if [ "" = $PSTART ]; then PSTART=1; fi
+    if [ "" = $PLINE ]; then PLINE=$PSIZE; fi
+    if [ "r" = $1 ]; then PPAGE=$RPAGE; PTAG="Right kwic";
+    else PPAGE=$LPAGE; PTAG="Left kwic"; fi
+    if [ "off" = $KWIC ]; then
+	if [ "right" = $OPT ]; then
+	    PPAGE=$RKWIC
+	else
+	    PPAGE=$LKWIC
+	fi
+    fi
+#    cat $RPAGE |head ###debug
+    PEND=`cat $PPAGE|awk 'END{print NR}'`
+    if [ $START -gt $PEND ]; then
+	START=$(($PEND - $PLINE)); PSTART=$START; fi
+#	PSTART=$(($PEND - $PLINE)); fi
+    if [ $PSTART -lt 1 ]; then PSTART=1; fi
+#    debug "start, pstart, pline, pend:$START, $PSTART, $PLINE, $PEND" ####debug
+    if [ "on" = $KWIC ]; then
+	#	head -$(($PSTART+$PLINE)) $PPAGE | pdisp $PSTART $PLINE
+	startpre
+#	echo "<div class='preCode01'>"
+	head -$(($PSTART+$PLINE)) $PPAGE | pdisp $PSTART $PLINE |table 1
+	#	echo "</div>"
+	endpre
+    else
+	if [ "ON" = $ABS ]; then
+	    PLINE=1
+	    
+	    head -$(($PSTART+$PLINE)) $PPAGE | pdisp $PSTART $PLINE |table 1
+	    showabst
+	    echo "<TABLE><TR><TD>"; abstOFF; echo "</TD></TR></TABLE>"
+	else
+	    PLINE=$(($PLINE/3))
+	    head -$(($PSTART+$PLINE)) $PPAGE | pdisp $PSTART $PLINE |table 1
+	fi
+#	echo  "$EI[$PTAG]$Ee<br>"
+    fi
+######    echo "</pre>"
+#    echo -n "$EI"
+    echo -n "$EI" "<div class='info'>[</div>"
+    echo -n "<div id='opt' class='info'>$OPT</div>"
+    echo -n "<div class='info'> kwic]</div>" "$Ee"
+    echo -n "<div class='infoend'></dev>"
+#    echo  "$EI[$PTAG]$Ee<br>"
+#    echo "<TABLE nowrap><TR>"
+#    inputres;
+#    if [ "on" = $KWIC ]; then kwicOFF; else kwicON; fi
+#    echo "</TR></TABLE>";
+    echo "<TABLE><TR>"
+    elizaform; tripletform; verbform; inlineLinkform; linkform;
+    leftform; rightform;
+
+    fastback; backform; nextform; fastnext;sselform;
+    echo "</TR><TR>"
+    echo "</TR></TABLE>"
+#    startpre
+    return
+} #### end of pager()
+
+searchKWIC(){ ##
+#    KEY=$1
+    KEY=$@
+    KEYRES=$KEY
+#    INFO=`cat $PUBFDIC|idctr|grep -in -m1 -e "$KEY"`
+    INFO=`cat $PUBFDIC|grep -in -m1 -e "$KEY"`
+    INFO1=`echo $INFO| cut -d' ' -f1`
+    ORDER=`echo $INFO1| cut -d':' -f1`
+    FREQ=`echo $INFO1| cut -d':' -f2`
+    KEY=`echo $INFO| cut -d' ' -f2`
+    echo -e "Searching $ENHI$KEYRES$ENHe occurrences..."
+    echo -e "The rank of $ENHI$KEY$ENHe is No.$ENHI${ORDER}$ENHe ($FREQ occurrences) during 5 years in the PubMed."
+    pubmeddic -k $KEYRES
+} ### searchKWIC
+
+table(){ ## $1: column number
+    awk -v col=$1 '
+    BEGIN { ln= 1 }
+    {
+	line[ln] = $0
+	ln++
+    }
+    END {
+#	print "ln=" ln;
+	print "<TABLE>"
+#	print "<TABLE width=780>"
+	for (i=1; i<=ln; i++){
+	    ### ajax suggest this bug
+            if( col == 1 ) { print "<TR>" }
+	    if( i % col == 1 ){ print "<TR>" }
+	    print "<TD>", line[i], "</TD>"
+	    if( i % col == 0 ){ print "</TR>" }
+	}
+	print "</TABLE>"
+    }
+    '
+}
+
+crossTable(){ ## $1: column number
+    #            col
+    #       0  1  2  3   4
+    #-----+-----------------
+    # r 0 | 1  4  7  10  13
+    # o 1 | 2  5  8  11  14
+    # w 2 | 3  6  9  12
+    #
+    # COLUMN=5, ROW= int( ln /COLUMN ) + 1/0
+    # ind = row + 1 + ROW * col
+    awk -v COLUMN=$1 '
+    BEGIN { ln= 1 }
+    {
+	line[ln] = $0
+	ln++
+    }
+    END {
+	ln--;
+	ROW=int(ln / COLUMN);
+	if(ln % COLUMN ) ROW++;
+	print "<TABLE>"
+	for(row=0; row<ROW; row++){
+	    print "<TR>"
+	    for (col=0; col<COLUMN; col++){
+		ind= row + 1 + ROW * col
+		print "<TD>", line[ind], "</TD>"
+	    }
+	    print "</TR>"
+	}
+	print "</TABLE>"
+    }
+    '
+    
+}
+lint(){ ## $1: width
+    WRAP=$1
+    awk -v wrap=$WRAP '
+    BEGIN { if (! wrap) wrap=80 }
+#    length (gsub(/^<.+>$/,"", $0)) > wrap {
+    length  > wrap {
+	split($0, words); pline = ""
+	for( i = 1; i<=length(words); i++ ){
+	    if ( i == 1 ) line = words[i]
+	    else line = pline " " words[i]
+#	    if (length(gsub(/^<.+>$/,"",line)))>wrap){
+	    if (length(line)>wrap){
+		print pline
+		pline = words[i]
+	    }else{
+		pline = line
+	    }
+	}
+	print pline
+    }
+    length <= wrap {print }
+'
+} ### lint for hyperlink
+
+gene(){
+    KEY=$1
+    if [ ! -e $GENEDIC ]; then return; fi
+    cat $GENEDIC |awk -v key=$KEY '
+#    BEGIN {found=0}
+    NR % 2 {
+	if( match( $0, key) == 1 ) found=NR + 1
+    }
+    NR == found {
+	printf("=>%s\n",$0); exit
+    }' | sed 's/,/, /g' | lint 140
+} ### gene keyword
+
+wordnet(){ ### $1: KEY
+    KEY=$1
+#    if [ "" != $KEY ]; then
+    if [ $KEY ]; then
+	WRES=$KEY
+    else
+	return
+    fi
+    #    echo "<br>"
+    startpre
+    echo -n  "--- <strong>WordNet</strong> output for <strong>$KEY</strong> ---"
+    sselform;
+    if [ $GENEDIC ]; then gene $WRES; fi
+    if [ -x $WN ]; then
+	$WN $WRES -over |lint $WIDTH
+	echo -n  "--- <strong>WordNet</strong> end ---"
+	sselform;
+    else
+	echo "wordnet not installed"
+    fi
+    endpre
+} ### wordnet
+
+freq(){ #$1=KEY
+    cd $XMLDIR
+    if [ -e $PUBFDIC ]; then
+#	INFO=`cat $PUBFDIC|idctr|grep -in -m1 -e $1`
+	INFO=`cat $PUBFDIC|grep -in -m1 -e $1`
+	INFO1=`echo $INFO| cut -d' ' -f1`
+	FREQ=`echo $INFO1| cut -d':' -f2`
+	echo $FREQ
+    fi
+}
+
+#checkkeyword(){ ### Keword_to_be_checked
+#    KEY=$1
+#    INFO=`cat $PUBFDIC|idctr|grep -in -m1 -e "$KEY"`
+#    INFO1=`echo $INFO| cut -d' ' -f1`
+#    ORDER=`echo $INFO1| cut -d':' -f1`
+#    FREQ=`echo $INFO1| cut -d':' -f2`
+#    if [  $FREQ -lt $THRESH ]; then
+#	echo "rare keyword. quit!"; return 0
+#    else
+#	return $FREQ
+#    fi
+#}
+
+header(){
+    if [ $PAGE = "eliza" ]; then
+#	INFO=`cat $PUBFDIC|idctr|grep -in -m1 -e $KEY`
+	INFO=`cat $PUBFDIC|grep -in -m1 -e $KEY`
+    else
+#	INFO=`cat $PUBFVDIC|idctr|grep -in -m1 -e $KEY`
+	INFO=`cat $PUBFVDIC|grep -in -m1 -e $KEY`
+    fi
+    INFO1=`echo $INFO| cut -d' ' -f1`
+    ORDER=`echo $INFO1| cut -d':' -f1`
+    FREQ=`echo $INFO1| cut -d':' -f2`
+    KEY=`echo $INFO| cut -d' ' -f2`
+    echo -e "searching $ENHI$KEYRES$ENHe examples..."
+    echo -e "The rank of $ENHI$KEY$ENHe is No.$ENHI${ORDER}$ENHe ($FREQ occurrences) during 5 years in the PubMed."
+    #		export $KEY
+}
+
+getOrder(){ #$1=$KEY
+#    INFO=`cat $PUBFDIC|idctr|grep -in -m1 -e "$1"`
+    INFO=`cat $PUBFDIC|grep -in -m1 -e "$1"`
+    INFO1=`echo $INFO| cut -d' ' -f1`
+    echo $INFO1| cut -d':' -f1
+}
+
+
+REVISION="0.3"
+HISTORY="/tmp/pdhistory"
+ESCK=$'\x1b\x5b\x4b' #del to the end
+ESC_=$'\x1b\x5b'
+_D=$'\x44' #move left
+
+bol(){ ### readhistory
+    nback=${#_RES};
+    if [ $nback != "0" ]; then 
+	echo -ne $ESC_$nback$_D$ESCK
+	REStmp=$_RES; _RES=""
+    fi
+}
+gethist(){ ### readhistory
+    _RES=`cat $HISTORY | awk -v lnum=$1 'NR==lnum'`
+}
+arrowup(){ ### ring buffer
+    bol; gethist $ind; echo -ne $_RES; 
+    if [ $ind -gt 1 ]; then let ind--; else ind=$count; fi
+}
+arrowdown(){
+    bol; gethist $ind; echo -ne $_RES; let ind++;
+    if [ $ind -gt $count ]; then ind=1; fi
+}
+readhistory(){
+    ## read history
+    if [ -e $HISTORY ]; then count=`cat $HISTORY |wc -l`; else count=0; fi
+    ind=$count; _RES=""
+    ## trap upper and lower arrow key
+    tIFS=$IFS; IFS=
+    while  read -sr -n1 chr; do
+	if [ ! $chr ]; then break; fi
+	if [  $'\x1b' = $chr ]; then ## escape key is down
+	    read -s -n1 chr2; read -s -n1 chr3;
+	    case $chr3 in
+		$'\x41') arrowup;;
+		$'\x42') arrowdown;;
+		else) echo "trapped";;
+	    esac
+	elif [ $'\cp' = $chr ]; then arrowup
+	elif [ $'\cn' = $chr ]; then arrowdown
+	elif [ $'\x7F' = $chr ] || [ $'\ch' = $chr ]; then ## DEL
+	    loc=${#_RES}; 
+	    if [ $loc -gt 1 ]; then
+		loc=$(( loc - 1 ))
+		_RES=`echo $_RES|cut -c 1-$loc`;
+		echo -ne "\b"$ESCK; 
+	    else
+		if [ $loc = 1 ]; then echo -ne "\b"$ESCK; fi
+		loc="0"; _RES=""
+	    fi
+	elif [ $'\ce' = $chr ]; then
+	    bol; echo -ne $REStmp; _RES=$REStmp; 
+	elif [ $'\ca' = $chr ]; then  bol; #begin of line
+	elif [[ $chr =~ [$'\x20'-$'\x7e'] ]]; then
+	    echo -ne $chr
+	    _RES=$_RES$chr
+	fi
+    done
+    IFS=$tIF
+    return
+}
+
+readh(){ ###
+    readhistory; echo ""
+    if [ $_RES ] && [ ${#_RES} -gt 1 ]; then echo $_RES >> $HISTORY; fi
+} ### readhistory & readh
+
+
+kwichandler(){ ## key1 key2
+    debug "kwichandler:wcount=$wcount, '$#='$#, $1, $2"
+#    if [ $# -gt 3 ]; then lhandler; return ;fi
+#    if [ $2 ]; then KEY="$1 $2"; debug "'$2'=$2"; else KEY=$1;  fi
+    #    KEY=`echo $KEY |tr '+' ' ' ` ### rev1.39 remove '.'
+    oKEY=`echo "$KEY" |tr '.' ' ' `       ## 1.80 original key with +
+    KEY=`echo "$KEY" |tr '+.' ' ' ` ### rev1.39 remove '.'
+    KEY=`echo "$KEY" | sed 's/[ ]$//' `  ## 1.80
+    KEYNAME="$1_$2"; KEYNAME=`echo $KEYNAME | tr ' ' '_'`
+    KEYARRAY=($KEY); _k1="${KEYARRAY[0]}"; _k2="${KEYARRAY[1]}"
+    KEY2="$_k1 $_k2"
+    debug "KEY2: $KEY2"
+#    KWICLINE="${TMPLINE}${KEYNAME}";
+    KWICLINE="${PRDIR}/kw/${KEYNAME}";
+    RPAGE="${RPAGE}${KEYNAME}"
+    LPAGE="${LPAGE}${KEYNAME}"
+    RKWIC="${RKWIC}${KEYNAME}"
+    LKWIC="${LKWIC}${KEYNAME}"
+    RDIC="${RDIC}${KEYNAME}"
+    LDIC="${LDIC}${KEYNAME}"
+
+    wcount=`echo $KEY | wc -w`
+    if [ $wcount = 3 ]; then
+	INFO=`cat $PUBFNDIC|grep -in -m1 -e "$KEY"`
+    else
+	INFO=`cat $PUBFDIC|grep -in -m1 -e "$KEY"`
+    fi
+#    INFO=`cat $PUBFDIC|grep -in -m1 -e "$KEY2"`
+    INFO1=`echo $INFO| cut -d' ' -f1`
+    ORDER=`echo $INFO1| cut -d':' -f1`
+    FREQ=`echo $INFO1| cut -d':' -f2`
+    debug "$KWICLINE"
+
+    if [ ! $FREQ ] || [  $FREQ -lt $THRESH ]; then
+	echo -n "$KEY($FREQ): rare neighboring keywords. "
+	echo "Instead, ELIZA executes ${ENHI}InLine${ENHe} keyword search."
+	lhandler
+    else
+	INPF=${PUBF}*.txt
+	echo -e "kwic search for ${ENHI}$KEY${ENHe} out of >$SCALE occurrences<br>"
+	echo -ne "$FREQ occurrences (No.$ENHI${ORDER}$ENHe in the rank) during 5 years in the PubMed."
+	if [ ! -e "$KWICLINE" ]; then
+	    echo " [no cache]"
+	    _grepline="${PRDIR}/grepline"
+	    debug "oKEY:$oKEY, KEY:$KEY"
+#	    cat $INPF |grepline "$KEY" > $_grepline
+	    ### remove TAGs the most short regular expression
+	    cat $INPF |grepline "$KEY" | sed -e 's/<[^>]*>//g' > $_grepline
+	    cat $_grepline | _kwic "$KEY" > $KWICLINE
+	found=`wc -l $KWICLINE|awk '{print $1}'`
+	echo -en " $found found\r"
+	debug "R,L-PAGE, R,L-KWIC: $RPAGE,$LPAGE,$RKWIC,$LKWIC"
+	### rev 1.84 triplet-keywords: kwic-core r $KEY was changed as "$KEY"
+	cat $KWICLINE |
+	    sort -k4nr,4nr -k6,6 -k7 -k3nr,3nr | kwic-core r "$KEY" > $RPAGE
+	cat $KWICLINE |
+	    sort -k4nr,4nr -k6,6 -k7 -k3nr,3nr | kwic-core s "$KEY" > $RKWIC
+	cat $KWICLINE |
+	    sort -k3nr,3nr -k5,5 -k7 -k4nr,4nr |kwic-core l "$KEY" > $LPAGE
+	cat $KWICLINE |
+	    sort -k3nr,3nr -k5,5 -k7 -k4nr,4nr |kwic-core s "$KEY" > $LKWIC
+	cat $KWICLINE |awk '{print $3,$5}' |sort -k1nr,1nr -k2 |uniq >$LDIC
+	cat $KWICLINE |awk '{print $4,$6}' |sort -k1nr,1nr -k2 |uniq >$RDIC
+	else echo " [cache]"
+	fi
+	debug "<br>oKEY:$oKEY, KEY:$KEY"
+#	updateHistory "$KEY"
+	updateHistory "$oKEY"
+	kLINES=$(( $LINES / 3 ))
+	if [ "off" = $KWIC ]; then
+	    kLINES=$(( $LINES / 3 ))
+	fi
+	debug "KEY(kwichandler):$KEY"  ##debug
+	if [ "right" = $OPT ]; then
+	    pager r $START $kLINES "$KEY"
+	    frqpager r 1 20
+	else
+	    pager l $START $kLINES "$KEY"
+	    frqpager l 1 20
+	fi
+	wordnet $KEY
+    fi
+    return
+} ### kwichandler
+showabst(){
+    INPF=${PUBF}*.txt
+    echo "--- <strong>ABSTRACT</STRONG>  ---"
+    if [ "right" = $OPT ]; then PAT=$RKWIC; else PAT=$LKWIC; fi
+    if [ "inline" = $PAGE ]; then
+	PAT=$tLINE;
+    fi
+    pattern=`cat $PAT | awk -v st=$START 'NR==st' | sed 's/\n//g' |
+                  sed 's/<strong>//g' |sed 's/<\/strong>//g'`
+    cat $INPF |grep -i -B3 -m1  "${pattern}" |
+    awk -v str="$pattern" '
+    /^#/ { PMID="<a href=https://www.ncbi.nlm.nih.gov/pubmed/?term=" $2
+	PMID = PMID " target=_blank>" $2 "</a>"
+	printf( "PMID:%s ", PMID ) }
+    /^%/ { sub(/^% /,"")
+	split($0, doi, "DOI: ");
+	doilink="<a href=https://doi.org/" doi[2] " target=_blank>" doi[2] "</a>"
+	printf("DOI:%s\n%s\n", doilink, doi[1])    }
+    /^*/ { print "<strong>" $0 "</strong>" }
+    /^-/ {
+	replaced="<strong>" str "</strong>"
+	sub(str, replaced, $0); print
+     }
+    '| table 1
+#    '|lint $WIDTH
+    echo "--- <strong>ABSTRACT END</STRONG>  ---"
+}
+
+hint(){
+    echo "<p><img src='/images/plus.png'>add keyword</p>"
+    }
+htmlheader(){
+#    $|=1;
+    cat <<EOF
+Content-type: text/html
+
+<!DOCTYPE html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+   <title>ELIZA</title>
+   <style> 
+     #wrapper {
+     text-align: left;
+     width: 800px;
+//     width: 940px;
+     margin: 0 auto;
+     padding: 0;
+     }
+     #heading, #footer{
+       width: 780px; margin: 0; padding: 0; text-align: center;
+//       width: 920px; margin: 0; padding: 0; text-align: center;
+       background: lightgray; color: white; border-color: #6A5ACD;
+       background-image: url("/images/pleiades.jpg");
+     }
+     #panel{
+       width: 780px; margin: 0; padding: 0;
+//       width: 920px; margin: 0; padding: 0;
+       background: lightgray;
+     }
+     #terminal{
+       width: 780px;
+//       width: 920px;
+       margin: 0;
+       padding: 0;
+//       background: #B0C4DE;
+//       color: darkgray;
+//       font-family: monospace, serif; 'Courier New', Courier, Monaco;
+       font-family: monospace, serif, 'Courier New';
+       font-size: 0.9em;
+     }
+     body{
+       text-align:center;
+       padding: 0;
+       maring: 0;
+     }
+     button {font-weight:bold}
+     p { margin:0; padding:0; font-size: 100% }
+     .phase1{color: #6A5ACD;}
+     .phase2{color: #006400}
+     .phase3{color: #D2691E}
+     .phase4{color: #4169E1}
+     .info{ float: left; }
+     .infoend{ clear: both; }
+EOF
+    if [ ! $DEBUG ]; then
+	echo ".display-none { display: none; }"
+    else
+	echo ".display-none { float: left; margin:3 }"
+    fi
+    cat <<EOF
+     body{
+     text-align:center;
+     padding: 0;
+     margin: 0;
+     }
+     div.preCode01{
+       white-space:pre;
+     }
+　　 pre {
+/*    font-family:  Consolas, 'Courier New', Courier, Monaco, monospace; */
+       font-family: monospace, serif, 'Courier New';
+    font-size: 1.2em;
+    line-height: 1.2;
+    overflow: auto;
+    width: 780px;
+//    width: 920px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+　　}
+　　table {
+     border-collapse: collapse; border-spacing: 0px 0px;
+     width: 780px;
+//     width: 920px;
+    }
+    td { padding: 0px 0px; }
+
+    #Searching{
+	    position:absolute;
+	    left:50%;
+	    top:15%;
+	    margin-left:-30px;	    
+    }
+    </style>
+</head>
+EOF
+    datestr=`date +%m%M%s`
+cat <<EOF
+<body>
+<div id="wrapper">
+  <div id="Searching"><img src="/images/loading.gif?$datestr"></div>
+EOF
+# <script type="text/javascript">
+# //  document.getElementById("Searching").style.display="block";
+# //  document.getElementById("Searching").style.display="none";
+# </script>
+
+# EOF
+} ## htmlheader
+
+startpre(){
+     echo "<div class='preCode01'>"
+#    echo "<pre>"
+}
+endpre(){ ### obsolete because htmlfooter cares.
+    echo "</div>"
+    #    echo "</pre>"
+}
+
+htmlfooter(){
+#    echo "</pre>"
+    echo "</div>" ## terminal
+    echo "<div id='footer'>" ##footer
+    echo "<a href=$URL>return </a><br>"
+    echo "PubMed database: last updated on ${ENHI} $TSTAMP ${ENHe}<br>"
+    echo -e "$ENHI$COPYRIGHT $ENHe <br>"
+    echo "<br>"
+    echo "</div>" ## footer
+cat <<EOF
+
+<script type=text/javascript  src="/js/jquery-3.4.1.min.js"></script>
+<script type=text/javascript>
+  document.getElementById("Searching").style.display="none";
+/*
+     \$(document).ready(function(){
+        \$("#inline").click(inline)
+     });
+*/
+     function ing(){
+       document.getElementById("Searching").style.display="block";
+     }
+// get var from elements
+     var res=\$('#res').val();
+     var opt=document.getElementById("OPT").innerHTML;
+     var kwic=document.getElementById("KWIC").innerHTML;
+     var abs=document.getElementById("ABS").innerHTML;
+     var page=document.getElementById("PAGE").innerHTML;
+     var start=Number(document.getElementById("START").innerHTML);
+     var lines=Number(document.getElementById("LINES").innerHTML);
+     var leap=Number(document.getElementById("LEAP").innerHTML);
+     var srch=(document.getElementById("SRCH").innerHTML);
+//     console.log(res,kwic,page,start,lines,leap);
+
+     function ksearch(){
+       \$.ajax({
+          url: '/cgi-bin/pd-cgi',
+          data: {
+             PAGE: "kwic",
+             search: "Search",
+             OPT: opt,
+             RES: \$('#res').val(),
+          },
+          success: function(data){
+            document.getElementById("Searching").style.display="none";
+               var res=\$('#res').val()
+               var URL="/cgi-bin/pd-cgi?search=Search&PAGE=kwic&RES=" + res
+               URL=URL + "&OPT=" + opt;
+               URL=URL + "&SRCH=" + srch;
+               location.href=URL
+          }
+       }); //ajax
+     } //ksearch() : kwic
+
+     \$('#res').keypress(function(e){
+        if( e.which == 13 ){
+           ing(); ksearch();
+           // for smartphone?
+           \$('#res').blur();
+           return false;
+        }
+     });
+
+     function inline(){
+       \$.ajax({
+          url: '/cgi-bin/pd-cgi',
+          data: {
+             PAGE: "inline",
+             inline: "InLine",
+             RES: \$('#res').val(),
+          },
+            success: function(data){
+            document.getElementById("Searching").style.display="none";
+               var res=\$('#res').val()
+               var URL="/cgi-bin/pd-cgi?PAGE=inline&RES=" + res
+               URL=URL + "&SRCH=" + srch;
+               location.href=URL
+          }
+       }); //ajax
+     } //inline()
+
+     function multi(){
+       \$.ajax({
+          url: '/cgi-bin/pd-cgi',
+          data: {
+             PAGE: "multi",
+             multi: "Multi",
+             RES: \$('#res').val(),
+          },
+          success: function(data){
+            document.getElementById("Searching").style.display="none";
+               var res=\$('#res').val()
+               var URL="/cgi-bin/pd-cgi?multi=Multi&PAGE=multi&RES=" + res
+               URL=URL + "&SRCH=" + srch;
+               location.href=URL
+          }
+       }); //ajax
+     } //multi()
+
+     function wordnet(){
+        var res=\$('#res').val()
+        var URL="/cgi-bin/pd-cgi?wordnet=WordNet&RES=" + res;
+        URL=URL + "&SRCH=" + srch;
+        location.href=URL;
+     }
+     function resetRes(){
+        var URL="/cgi-bin/pd-cgi?&RES=&PAGE=eliza";
+        URL=URL + "&SRCH=" + srch;
+        location.href=URL;
+     }
+     function kwicON(){
+//        if( page == "kwic" ){
+           var URL="/cgi-bin/pd-cgi?&PAGE=kwic&KWIC=on&RES=" + res;
+           URL=URL + "&OPT=" + opt + "&START=" + start;
+           URL=URL + "&SRCH=" + srch;
+           location.href=URL;
+//        }
+     }
+     function kwicOFF(){
+        if( page == "kwic" ){
+           var URL="/cgi-bin/pd-cgi?&PAGE=kwic&KWIC=off&RES=" + res;
+           URL=URL + "&OPT=" + opt + "&START=" + start;
+           URL=URL + "&SRCH=" + srch;
+           location.href=URL;
+        }
+     }
+     function abstON(){
+// do nothing
+//           var URL="/cgi-bin/pd-cgi?&PAGE=kwic&KWIC=" + kwic;
+//           URL=URL + "ABS=on&RES=" + res;
+//           URL=URL + "&OPT=" + opt + "&START=" + start;
+//           URL=URL + "&SRCH=" + srch;
+//           location.href=URL;
+     }
+     function abstOFF(){
+        var URL="/cgi-bin/pd-cgi?&PAGE=kwic&KWIC=on";
+        URL=URL + "&ABS=off&RES=" + res;
+        URL=URL + "&OPT=" + opt + "&START=" + start;
+        URL=URL + "&SRCH=" + srch;
+        location.href=URL;
+     }
+     function ccl(){
+        var URL="/cgi-bin/pd-cgi?&PAGE=cclear&RES=" + res;
+        URL=URL + "&SRCH=" + srch;
+        location.href=URL;
+     }
+     function concatenate(){
+        var res= \$('#res').val();
+        var conRes= res.replace(' ','+');
+        \$('#res').val(conRes);
+     }
+     function unConcatenate(){
+        var res= \$('#res').val();
+        var unConRes= res.replace('+',' ');
+        \$('#res').val(unConRes);
+     }
+
+     function restore(){
+        var hist=document.getElementById("history").value;;
+        \$('#res').val(hist);
+     }
+
+     function eliza(){
+        var URL="/cgi-bin/pd-cgi?PAGE=eliza&RES=" + res;
+        URL=URL + "&SRCH=" + srch;
+        location.href=URL;
+     }
+     function triplet(){
+        var URL="/cgi-bin/pd-cgi?PAGE=triplet&RES=" + res;
+        URL=URL + "&SRCH=" + srch;
+        location.href=URL;
+     }
+     function verb(){
+        var URL="/cgi-bin/pd-cgi?PAGE=verb&RES=" + res;
+        URL=URL + "&SRCH=" + srch;
+        location.href=URL;
+     }
+     function addkey(element){
+        var originalRes = \$('#res').val();
+	var key = element.getAttribute("name");
+        key=key.trim();
+        key=key.replace(' ','+');
+        var newRes = originalRes + " " + key;
+        \$('#res').val(newRes);
+     }
+     function addkeybefore(element){
+        var originalRes = \$('#res').val();
+	var key = element.getAttribute("name");
+        key=key.trim();
+        key=key.replace(' ','+');
+        var newRes = key + " " + originalRes;
+        \$('#res').val(newRes);
+     }
+     function setkey(element){
+        var key = element.getAttribute("name");
+        key=key.trim();
+        \$('#res').val(key);
+     }
+
+     function link(){
+       \$.ajax({
+          url: '/cgi-bin/pd-cgi',
+          data: {
+             PAGE: "link",
+             RES: \$('#res').val(),
+          },
+          success: function(data){
+            document.getElementById("Searching").style.display="none";
+               var res=\$('#res').val()
+               var URL="/cgi-bin/pd-cgi?&PAGE=link&RES=" + res
+               URL=URL + "&SRCH=" + srch;
+               location.href=URL
+          }
+       }); //ajax
+     } //link()
+
+     function inlinelink(){
+       \$.ajax({
+          url: '/cgi-bin/pd-cgi',
+          data: {
+             PAGE: "link",
+             OPT: "inline",
+             RES: \$('#res').val(),
+          },
+          success: function(data){
+            document.getElementById("Searching").style.display="none";
+               var res=\$('#res').val()
+               var URL="/cgi-bin/pd-cgi?OPT=inline&PAGE=link&RES=" + res
+               URL=URL + "&SRCH=" + srch;
+               location.href=URL
+          }
+       }); //ajax
+     } //inlinelink()
+
+     function leftKwic() {
+        var res=\$('#res').val();
+        var URL="/cgi-bin/pd-cgi?&PAGE=kwic&KWIC=on&OPT=left&RES=" + res;
+        URL=URL + "&START=" + start
+        URL=URL + "&SRCH=" + srch;
+        ing();
+        location.href=URL;
+
+     }
+     function rightKwic() {
+        var res=\$('#res').val();
+        var URL="/cgi-bin/pd-cgi?&PAGE=kwic&KWIC=on&OPT=right&RES=" + res;
+        URL=URL + "&START=" + start
+        URL=URL + "&SRCH=" + srch;
+        ing();
+        location.href=URL;
+
+     }
+
+     function nextlines() {
+        var fstart;
+        if( page == "kwic" ) {
+           if( kwic == "off" ){ fstart = start + ( parseInt(lines / 10)); }
+           else { fstart = start +( parseInt(lines / 3) ); }
+        }else{ fstart= start + lines; }
+        var res=\$('#res').val();
+        var URL="/cgi-bin/pd-cgi?&PAGE=" + page + "&KWIC=" + kwic;
+        URL=URL + "&OPT=" + opt + "&START=" + fstart + "&RES=" + res;
+        URL=URL + "&SRCH=" + srch;
+        location.href=URL;
+     }
+     function fastnext() {
+        var fstart;
+        if( page == "kwic" ) {fstart = start + ( parseInt(leap / 3)); }
+        else{ fstart= start + leap; }
+        var res=\$('#res').val();
+        var URL="/cgi-bin/pd-cgi?&PAGE=" + page + "&KWIC=" + kwic;
+        URL=URL + "&OPT=" + opt + "&START=" + fstart + "&RES=" + res;
+        URL=URL + "&SRCH=" + srch;
+        location.href=URL;
+     }
+     function backlines() {
+        var fstart;
+        if( page == "kwic" ) {
+           if( kwic == "off" ){ fstart = start - ( parseInt(lines / 10)); }
+           else { fstart = start - ( parseInt(lines / 3) ); }
+        } else { fstart= start - lines; }
+        if( fstart < 1 ) { fstart=1 }
+        var res=\$('#res').val();
+        var URL="/cgi-bin/pd-cgi?&PAGE=" + page + "&KWIC=" + kwic;
+        URL=URL + "&OPT=" + opt + "&START=" + fstart + "&RES=" + res;
+        URL=URL + "&SRCH=" + srch;
+        location.href=URL;
+     }
+     function fastback() {
+        var fstart;
+        if( page == "kwic" ) {fstart = start - ( parseInt(leap / 3)); }
+        else { fstart= start - leap; }
+        if( fstart < 1 ) { fstart=1 }
+        var res=\$('#res').val();
+        var URL="/cgi-bin/pd-cgi?&PAGE=" + page + "&KWIC=" + kwic;
+        URL=URL + "&OPT=" + opt + "&START=" + fstart + "&RES=" + res;
+        URL=URL + "&SRCH=" + srch;
+        location.href=URL;
+     }
+     function ssel(){  /* search selected string */
+        var selectedText = window.getSelection().toString();
+        if( selectedText != ""){
+           \$("#res").val(selectedText);
+           ing();
+           ksearch();
+        }
+     }
+     var pasteArea = \$("#res");
+     if(navigator.clipboard){
+        navigator.clipboard.readText()
+        .then(function(text){
+           pasteArea.textContent = text;           
+        });
+     }
+     if( srch == "strict"){
+        \$("#srch").prop("checked", true)
+     } else {
+        \$("#srch").prop("checked", false)
+     }
+     function srchtggl(){
+        var ton = \$("#srch").prop("checked");
+        console.log(ton);
+        if(ton){ srch = "strict" } else { srch= "loose" }
+        var URL="/cgi-bin/pd-cgi?&PAGE=" + page + "&KWIC=" + kwic;
+        URL=URL + "&OPT=" + opt + "&START=" + start + "&RES=" + res;
+        URL=URL + "&SRCH=" + srch;
+        location.href=URL;
+     }
+     document.getElementById("res").focus()
+</script>
+</div> <!-- wrapper -->
+<div><br><br></div>
+</body>
+</html>
+EOF
+} ### htmlfooter
+
+# htmlfooter2(){ ### this function is obsolete rev1.50
+#     cat <<EOF
+# </pre>
+# EOF
+# #    echo "<a href=http://virology.m.chiba-u.jp/>return</a>"
+#     echo "<a href=$URL>return</a><br>"
+#     echo "pubmed database: last updated on $TSTAMP<br>"
+#     echo -e "$ENHI$COPYRIGHT $ENHe <br>"
+#     debug "footer2";
+#     cat <<EOF
+# <script type=text/javascript  src="/js/jquery-3.4.1.min.js"></script>
+# <script type=text/javascript>
+#   document.getElementById("Searching").style.display="block";
+#   document.write("footer2");
+# </script>
+# </div> <!-- wrapper -->
+# <div></div>
+# </body>
+# </html>
+# EOF
+# } ### htmofooter2
+
+
+inputres(){
+cat <<EOF
+      <select id="page" name="PAGE" >
+EOF
+    if [ "eliza" = $PAGE ]; then
+	echo "<option value="eliza" selected>ELIZA</option>"
+    else echo "<option value="eliza">ELIZA</option>"; fi
+    if [ "triplet" = $PAGE ]; then
+	echo "<option value="triplet" selected>triplet</option>"
+    else echo "<option value="triplet">triplet</option>"; fi
+    if [ "kwic" = $PAGE ]; then
+	echo "<option value="kwic" selected >kwic</option>";
+    else echo "<option value="kwic">kwic</option>"; fi
+    if [ "verb" = $PAGE ]; then
+        echo "<option value="verb" selected>verb</option>"
+    else echo "<option value="verb">verb</option>"; fi
+    if [ "link" = $PAGE ]; then
+	echo "<option value="link" selected >link</option>";
+    else echo "<option value="link">link</option>"; fi
+    if [ "multi" = $PAGE ] || [ "multia" = $PAGE ]; then
+	echo "<option value="multi" selected >Multi</option>";
+    else echo "<option value="multi">Multi</option>"; fi
+    if [ "inline" = $PAGE ] || [ "inlinea" = $PAGE ]; then
+	echo "<option value="inline" selected >InLine</option>";
+    else echo "<option value="inline">InLine</option>"; fi
+    if [ "wordnet" = $PAGE ]; then
+	echo "<option value="WordNet" selected >WordNet</option>";
+    else echo "<option value="WordNet">WordNet</option>"; fi
+    cat <<EOF
+      </select>
+EOF
+	 cat <<EOF
+   <input id="res" type="text" name="RES" value="$RES" size=45>
+EOF
+cat <<EOF
+  <button class="phase4" value="Search" onclick="ing();ksearch();">Search</button>
+  <button  class="phase3" value="InLine" onclick="ing();inline();">InLine</button>
+  <button class="phase2"  value="Multi" onclick="ing();multi()">Multi</button>
+  <button  value="WordNet" onclick="wordnet()">WordNet</button>
+  <button  value="reset" onclick="resetRes()">reset</button>
+EOF
+cat <<EOF
+<script type=text/javascript>
+//  function resetRes(){
+//     document.getElementById("res").value="";
+//  }
+//  document.getElementById("Searching").style.display="block";
+</script>
+EOF
+} ### inputres
+
+kwicON(){
+    cat <<EOF
+   <td><button class="phase4" onclick="kwicON()">kwic ON</button></td>
+EOF
+}
+kwicOFF(){
+    cat <<EOF
+   <td><button class="phase4" onclick="kwicOFF()">kwic OFF</button></td>
+EOF
+}
+kwictoggle(){
+	 if [ "on" = $KWIC ]; then kwicOFF; else kwicON; fi
+}
+abstON(){
+    cat <<EOF
+   <td><button class="phase4" onclick="abstON()">abstract ON</button></td>
+EOF
+}
+abstOFF(){
+    cat <<EOF
+   <td><button  class="phase4" onclick="abstOFF()">abstract OFF</button></td>
+EOF
+}
+absttoggle(){
+	 if [ "ON" = $ABS ]; then abstOFF; else abstON; fi
+}
+unConcatform(){
+ cat <<EOF
+   <td><button  onclick="unConcatenate()">unConcat</button></td>
+EOF
+}
+
+concatform(){
+ cat <<EOF
+   <td><button  onclick="concatenate()">Concat</button></td>
+EOF
+}
+
+cclearform(){
+ cat <<EOF
+   <td><button  onclick="ccl()">Clear cache</button></td>
+EOF
+}
+cclear() {
+    debug "clear $PRDIR/*"
+    rm $PRDIR/*
+    rm $PRDIR/inline/*
+#    rm $PRDIR/history/*
+#    rm /tmp/tMULTI*
+    rm /$PRDIR/kw/*
+    rm /tmp/pd/*
+    rm /tmp/kw/*
+}
+updateHistory(){ ### $1: keyword
+    touch ${PRDIR}/history/$1
+}
+historyform(){
+#    mHISTORY=`ls -t $PRDIR/ |head -$hLIMIT `
+    mHISTORY=`ls -t ${PRDIR}/history/ | head -$hLIMIT `
+#    mHISTORY=`ls -Ft $PRDIR/ $PRDIR/inline/ |
+#         grep -v '/' | grep -v 'ttLINE' |head -$hLIMIT `
+
+    cat <<EOF
+       <td><button id='restore' onclick="restore();">restore:</button></td>
+       <td>
+       <select id=history name=RES onchange="restore();ing();ksearch()">
+EOF
+#       if [ $mHISTORY ]; then
+           for item in $mHISTORY; do
+	       item=`echo $item | tr '_' ' '`
+	       if [ "$RES" = "$item" ]; then
+		   echo "<option value= \"$item\" selected >$item</option>"
+	       else
+		   echo "<option value= \"$item\" >$item</option>"
+	       fi
+           done
+	   #       fi
+	   cat <<EOF
+    </select>
+    </td>
+EOF
+#    <button onclick="restore();">Restore</button>
+#</form>
+
+} ### Multi history
+
+srchtoggle(){
+    cat <<EOF
+   <td><input type="checkbox" id="srch" onchange="srchtggl()"><label for="srch" >strict srch</label>
+   </td>
+EOF
+}
+linkform(){
+    cat <<EOF
+  <td ><button class="phase2" value="Search"  onclick="ing();link();">link</td>
+EOF
+}
+inlineLinkform(){
+    cat <<EOF
+<td><button class="phase3" value="inlinelink" onclick="ing();inlinelink();">InLine link</td>
+EOF
+}
+verbform(){
+    cat <<EOF
+  <td ><button class="phase1" value="verb" onclick="ing();verb();">verb</button></td>
+EOF
+}
+elizaform(){
+    cat <<EOF
+  <td ><button class="phase1" value="eliza" onclick="ing();eliza();">Eliza Top</button></td>
+EOF
+}
+tripletform(){
+    cat <<EOF
+  <td ><button class="phase1" value="triplet" onclick="ing();triplet();">triplet</button></td>
+EOF
+}
+
+
+leftform(){
+    cat <<EOF
+  <td ><button class="phase4" onclick="leftKwic();">left(kwic)</button></td>
+EOF
+}
+
+rightform(){
+    cat <<EOF
+  <td ><button class="phase4" onclick="rightKwic();">right(kwic)</button></td>
+EOF
+}
+
+
+nextform(){
+        cat <<EOF
+  <td ><button  onclick="nextlines();">></button></td>
+EOF
+}
+
+fastnext(){
+        cat <<EOF
+  <td ><button  onclick="fastnext();">>></button></td>
+EOF
+}
+fastback(){
+cat <<EOF
+    <td ><button  onclick="fastback();"><<</button></td>
+EOF
+}
+
+backform(){
+        cat <<EOF
+  <td ><button  onclick="backlines();"><</button></td>
+EOF
+}
+
+sselform(){
+    cat <<EOF
+  <td><button class="phase1" value="paste" onclick="ssel();">Srch Selected</button></td>
+EOF
+}
+
+mgrepsed(){
+    GREP="grep -iF -B3 --line-buffered -e "
+    #    $GREP $1 |
+    #    awk -v key=$1 '
+    _key=`echo $1 |tr '+' ' '`
+    $GREP "$_key" |
+    awk -v key="$_key" '
+    BEGIN {
+	Key = toupper(substr(key, 1,1)) substr(key,2,length(key)-1)
+    }
+    {
+	gsub(key, "<strong>" key "<\/strong>" )
+	gsub(Key, "<strong>" Key "<\/strong>" )
+	gsub(toupper(key), "<strong>"  key "<\/strong>" )
+	gsub(tolower(key), "<strong>"  key "<\/strong>" )
+	print
+}
+'
+}
+_mgrep(){
+    #    GREP="grep -iF -B3 --line-buffered -e "
+    if [ $SRCH = "strict" ]; then
+	GREP="grep -iwF -B3 --line-buffered -e "
+    else
+	GREP="grep -iF -B3 --line-buffered -e "
+    fi
+    _key=`echo $1 |tr '+' ' '`
+    $GREP "$_key" 
+
+}
+
+_msed(){
+    awk -v key="$1" '
+    BEGIN {
+	gsub("+", " ", key)
+	Key = toupper(substr(key, 1,1)) substr(key,2,length(key)-1)
+    }
+    {
+	# gsub(key, "<strong>" key "<\/strong>" )
+	# gsub(Key, "<strong>" Key "<\/strong>" )
+	# gsub(toupper(key), "<strong>"  key "<\/strong>" )
+	# gsub(tolower(key), "<strong>"  key "<\/strong>" )
+	gsub(key, "_<_" key "_>_" )
+        gsub(Key, "_<_" Key "_>_" )
+	gsub(toupper(key), "_<_" toupper(key) "_>_" )
+	gsub(tolower(key), "_<_" tolower(key) "_>_" )
+	print
+}
+'
+}
+
+strongf(){
+    sed 's/_<_/<strong>/g' |sed 's/_>_/<\/strong>/g'
+}
+mgrep(){
+    #    GREP="grep -iF -B3 --line-buffered -e "
+    if [ $SRCH = "strict" ]; then
+	GREP="grep -iwF -B3 --line-buffered -e "
+    else
+	GREP="grep -iF -B3 --line-buffered -e "
+    fi
+    case $# in
+#	1 ) mgrepsed $1 ;;
+	1 ) _mgrep $1 | _msed $1 ;;
+	2 ) _mgrep $1 | _mgrep $2 | _msed $1  | _msed $2 ;;
+	3 ) _mgrep $1 | _mgrep $2 | _mgrep $3 |
+		  _msed $1 | _msed $2 | _msed $3;;
+	4 ) _mgrep $1 | _mgrep $2 | _mgrep $3 | _mgrep $4 |
+		  _msed $1 | _msed $2 | _msed $3 | _msed $4;;
+	5 ) _mgrep $1 | _mgrep $2 | _mgrep $3 | _mgrep $4 | _mgrep $5 |
+		  _msed $1 | _msed $2 | _msed $3 | _msed $4 | _msed $5;;
+	6 ) _mgrep $1 | _mgrep $2 | _mgrep $3 | _mgrep $4 | _mgrep $5 |
+	    _mgrep $6 |
+            _msed $1 | _msed $2 | _msed $3 | _msed $4 | _msed $5 |
+	    _msed $6;;
+	7 ) _mgrep $1 | _mgrep $2 | _mgrep $3 | _mgrep $4 | _mgrep $5 |
+	    _mgrep $6 | _mgrep $7 |
+            _msed $1 | _msed $2 | _msed $3 | _msed $4 | _msed $5 |
+	    _msed $6 | _msed $7;;
+	8 ) _mgrep $1 | _mgrep $2 | _mgrep $3 | _mgrep $4 | _mgrep $5 |
+	    _mgrep $6 | _mgrep $7 | _mgrep $8 |
+            _msed $1 | _msed $2 | _msed $3 | _msed $4 | _msed $5 |
+	    _msed $6 | _msed $7 | _msed $8;;
+	9 | *)  _mgrep $1 | _mgrep $2 | _mgrep $3 | _mgrep $4 | _mgrep $5 |
+	    _mgrep $6 | _mgrep $7 | _mgrep $8 | _mgrep $9 |
+            _msed $1 | _msed $2 | _msed $3 | _msed $4 | _msed $5 |
+	    _msed $6 | _msed $7 | _msed $8 | _msed $9;;
+    esac
+    if [ $# -gt 9 ]; then
+	echo "ELIZA searches using first 9 keywords, since I cannot handle more than 9 keywords.<br>"
+    fi
+} #mgrep
+lgrepsed(){
+    if [ $SRCH = "strict" ]; then
+	GREP="grep -iwF --line-buffered -e "
+    else
+	GREP="grep -iF --line-buffered -e "
+    fi
+    #    $GREP $1 |
+    _key=`echo $1 |tr '+' ' '`
+    $GREP "$_key" |
+#    awk -v key=$1 '
+    awk -v key="$_key" '
+    BEGIN {
+	Key = toupper(substr(key, 1,1)) substr(key,2,length(key)-1)
+    }
+    {
+	gsub(key, "<strong>" key "<\/strong>" )
+	gsub(Key, "<strong>" Key "<\/strong>" )
+	gsub(toupper(key), "<strong>"  key "<\/strong>" )
+	gsub(tolower(key), "<strong>"  key "<\/strong>" )
+	print
+}
+'
+}
+
+_lgrep(){
+    #    GREP="grep -iF --line-buffered -e "
+    if [ $SRCH = "strict" ]; then
+	GREP="grep -iwF --line-buffered -e "
+    else
+	GREP="grep -iF --line-buffered -e "
+    fi
+#    GREP="grep -iwF --line-buffered -e "
+    _key=`echo $1 |tr '+' ' '`
+    $GREP "$_key"
+}
+
+lgrep(){ #inline grep
+#    c_IFS=$IFS
+#    IFS=':'
+#    debug "lgrep '$#'=: $#, $1,$2,$3"
+    case $# in
+	1 ) _lgrep $1 | _msed $1 ;;
+	2 ) _lgrep $1 | _lgrep $2 | _msed $1  | _msed $2 ;;
+	3 ) _lgrep $1 | _lgrep $2 | _lgrep $3 |
+		  _msed $1 | _msed $2 | _msed $3;;
+	4 ) _lgrep $1 | _lgrep $2 | _lgrep $3 | _lgrep $4 |
+		  _msed $1 | _msed $2 | _msed $3 | _msed $4;;
+	5 ) _lgrep $1 | _lgrep $2 | _lgrep $3 | _lgrep $4 | _lgrep $5 |
+		  _msed $1 | _msed $2 | _msed $3 | _msed $4 | _msed $5;;
+	6 ) _lgrep $1 | _lgrep $2 | _lgrep $3 | _lgrep $4 | _lgrep $5 |
+	    _lgrep $6 |
+            _msed $1 | _msed $2 | _msed $3 | _msed $4 | _msed $5 |
+	    _msed $6;;
+	7 ) _lgrep $1 | _lgrep $2 | _lgrep $3 | _lgrep $4 | _lgrep $5 |
+	    _lgrep $6 | _lgrep $7 |
+            _msed $1 | _msed $2 | _msed $3 | _msed $4 | _msed $5 |
+	    _msed $6 | _msed $7;;
+	8 ) _lgrep $1 | _lgrep $2 | _lgrep $3 | _lgrep $4 | _lgrep $5 |
+	    _lgrep $6 | _lgrep $7 | _lgrep $8 |
+            _msed $1 | _msed $2 | _msed $3 | _msed $4 | _msed $5 |
+	    _msed $6 | _msed $7 | _msed $8;;
+	9 | *)  _lgrep $1 | _lgrep $2 | _lgrep $3 | _lgrep $4 | _lgrep $5 |
+	    _lgrep $6 | _lgrep $7 | _lgrep $8 | _lgrep $9 |
+            _msed $1 | _msed $2 | _msed $3 | _msed $4 | _msed $5 |
+	    _msed $6 | _msed $7 | _msed $8 | _msed $9;;
+    esac
+    if [ $# -gt 9 ]; then
+	echo "ELIZA searches using first 9 keywords, since I cannot handle more than 9 keywords.<br>"
+    fi
+#    IFS=$c_IFS
+} #lgrep
+
+mfilter(){
+    awk '
+    BEGIN{rec=1; ndata="id"}
+    /^#/ && ndata == "id" {
+	PMID="<a href=https://www.ncbi.nlm.nih.gov/pubmed/?term=" $2
+	PMID = "PMID: "  PMID " target=_blank>" $2 "</a>"
+	id= rec ") " PMID;
+#	id= PMID;
+	rec++
+	ndata = "journal"
+    }
+    /^%/ && ndata == "journal" {
+	split($0, doi, "DOI: ");
+	doilink="<a href=https://doi.org/" doi[2] " target=_blank>" doi[2] "</a>"
+#	printf("DOI:%s\n%s\n", doilink, doi[1])
+	journal=doi[1];
+	ndata = "title"
+    }
+    /^\*/ && ndata == "title" {
+	title = "<strong>" $0 "<\/strong>"
+	ndata = "abstract"
+    }
+    /^-/ && ndata == "abstract" {
+	print id, "DOI: " doilink
+	print journal
+	print title
+	print; ndata = "id"
+	print "<br>"
+    }
+'
+} #mfilter
+mdisp(){  ### mdisp $START $LINES $TARGET
+    TARGET=$3
+    mLINES=$(( $LINES / 10 )); #mLINES=$(( $mLINES * 5 ))
+#    mSTART=$(( $START / 10 )); #mSTART=$(( $mSTART * 5 ))
+    mSTART=$(( $START / 10 + 1 )); #mSTART=$(( $mSTART * 5 ))
+    mTILL=$(( $mSTART + $mLINES - 1 ))
+#    mTILL=$(( $mSTART + $mLINES +1 ))
+    debug "mdisp: $mSTART $mLINES $mTILL"
+#    cat $tMULTI | head -$mTILL | tail -$mLINES |
+    #    cat $tMULTI 2>/dev/null | head -$mTILL | tail -$mLINES |
+#    if [ $MOD = "ajax" ]; then
+#	    cat $TARGET 2>/dev/null | head -$mTILL | tail -$mLINES
+#    else
+#	cat $TARGET 2>/dev/null | head -$mTILL | tail -$mLINES |
+	cat $TARGET 2>/dev/null | head -$mTILL | tail -$mLINES |
+	    table 1
+#    fi
+} ###mdisp
+# marquee(){
+#     	echo "<marquee>ELIZA is still searching in the background, click <strong>show more</strong> for renew.</marquee>"
+
+#     }
+mnavi(){
+    FACTOR=2
+    cgiq="<a href=/cgi-bin/pd-cgi?"; cgiq=$cgiq"&RES="$oRES
+    cgiqa=$cgiq"&PAGE=multia>"; cgiq=$cgiq"&PAGE=multi";
+    till=$(( $nFound / $FACTOR - 1 ))
+    jumps=`seq $till | xargs`; #jumps="1 "$jumps
+    echo "<TABLE><TR><TD>"
+    echo -n "${cgiqa}Show all</a>, "
+    echo -n "Jump to: "
+    echo -n "$cgiq&START=1>1</a>"
+    for i in $jumps; do
+	num=$(( $i * $FACTOR ))
+	start=$(( $num * 50 + 1 ))
+	CGIQ=$cgiq"&START="$start
+	echo -n " $CGIQ >$((num + 1 ))</a>"
+    done
+    echo " $cgiq&START=$(($nFound*50))>END</a>"
+    if [ $BJOB ]; then
+	echo "$cgiq>show more</a>"
+    fi
+    echo "</TD></TR></TABLE>"
+
+} #mnavi
+lnavi(){ ## InLine navigation
+      FACTOR=10
+    cgiq="<a href=/cgi-bin/pd-cgi?"; cgiq=$cgiq"&RES="$oRES
+    cgiqa=$cgiq"&PAGE=inlinea>"; cgiq=$cgiq"&PAGE=inline";
+    till=$(( $nFound / $FACTOR - 1 ))
+    jumps=`seq $till | xargs`; #jumps="1 "$jumps
+    echo "<TABLE><TR><TD>"
+    echo -n "${cgiqa}Show all</a>, "
+    echo -n "Jump to: "
+    echo -n "$cgiq&START=1>1</a>"
+    for i in $jumps; do
+	num=$(( $i * $FACTOR ))
+	start=$(( $num * $FACTOR + 1 ))
+	CGIQ=$cgiq"&START="$start
+	echo -n " $CGIQ >$((num + 1 ))</a>"
+
+    done
+    echo " $cgiq&START=$(($nFound*50))>END</a>"
+    if [ $BJOB ]; then
+	echo "$cgiq>show more</a>"
+    fi
+    echo "</TD></TR></TABLE>"
+} #lnavi
+
+
+### pager display engine for InLine modified from pdisp
+### used for inline
+###    output "line" lines from "strt" 
+ldisp(){
+#    awk -v strt=$1 -v line=$2 -v key=$RES -v hyp=$HYP -v kwic=$KWIC '
+#    awk -v strt=$1 -v line=$2 -v key=$KEY -v hyp=$HYP -v kwic=$KWIC '
+#    awk -v strt=$1 -v line=$2 -v key=$oRES -v hyp=$HYP -v kwic=$KWIC '
+    awk -v strt=$1 -v line=$2 -v key=$oRES -v hyp=$HYP -v kwic=$KWIC -v opt=$OPT '
+    BEGIN{
+	ENHI="<strong>" #intense
+	ENHe="</strong>"
+	query="<a href=/cgi-bin/pd-cgi?RES=" key "&PAGE=inline&KWIC=off"
+	query=query "&ABS=ON&OPT=" opt
+    }
+#    NR>=strt && NR<strt+line {
+    {
+	hyper=query "&START=" NR ">" NR "</a>"
+	printf("%s%s) %s%s\n",ENHI,hyper,ENHe,$0)
+    }'	    
+} ### ldisp 
+
+
+lhandler(){ ### line multiple keywords handler
+    keyname=`echo $RES | tr ' ' '_'`
+    tLINE=${PRDIR}/inline/$keyname
+    ttLINE="${PRDIR}/inline/ttLINE"
+    lSCALE=$(( $SCALE / 5 ))
+    flist=`ls *txt|sort -r`
+    debug "lhandler:$tLINE"
+    echo -n "${ENHI}InLine${ENHe} keyword search for <strong>"$RES"</strong>."
+    if [ ! -e $tLINE ]; then
+	echo -n " [no cache]"
+	#        (cat $flist 2>/dev/null | grep '^-' |sed 's/\. /\n/g' | mgrep $RES |head -$SCALE |mfilter > $tLINE) &
+	if [ $MOD = "ajax" ]; then
+            cat $flist 2>/dev/null | grep '^-' |sed 's/^-//g' |
+		    sed 's/\. /\.\n/g' | lgrep $RES |
+	            strongf |head -$lSCALE  > $tLINE
+	else
+            cat $flist 2>/dev/null | grep '^-' |sed 's/^-//g' |
+       		    sed 's/\. /\.\n/g' | lgrep $RES |
+		    strongf |head -$lSCALE  > $tLINE
+	    BJOB=$!
+        fi
+     debug "Query lhandler: BJOB:$BJOB<br>"
+     else
+	 echo " [cache]"
+    fi
+    updateHistory "$keyname"   ### change the priority in the list of Restor Multi
+    ### lhandler routine called from link page
+    if [ "link" = $PAGE ]; then
+	debug "lhandler: $tLINE, $linkTmp"
+	#	cat $tMULTI |grep -e '^-' | sed 's/<\/*strong>//g' |
+	cat $tLINE | sed 's/<\/*strong>//g' |
+	    sed 's/<\/*i>//g' |rdictionary | sort -nr > $linkTmp
+#	head $linkTmp
+	return
+    fi
+    nFound=`wc -l $tLINE | cut -d' ' -f1`
+#    nFound=$(($nFound / 5 )); nSCALE=$(($SCALE / 5 - 1))
+#    echo -n "ELIZA shows $nFound occurrences during recent 5 years."
+    echo -n "ELIZA shows $nFound instances during recent 5 years."
+    if [ $nFound = 0 ]; then
+	echo "Instead, ELIZA performs multiple search."
+	mhandler;
+    fi
+#    if [ $nFound -ge $nSCALE ]; then echo " More would be found."; else echo; fi
+    if [ $nFound -ge $lSCALE ]; then echo " More would be found."; else echo; fi
+    echo "<TABLE><TR><TD>";
+    echo  "Giving ELIZA another keyword in the <strong>link</strong> would narrow down further."
+    echo "</TD>"
+     inlineLinkform; echo "</TR></TABLE>"
+    #    display $START $LINES $tMULTI
+     #    debug "$START $LINES"
+     if [ "ON" = $ABS ]; then
+	    PLINE=1
+	    #	    head -$(($PSTART+$PLINE)) $PPAGE | pdisp $PSTART $PLINE |table 1
+	    cat $ttLINE |awk -v strt=$START 'NR == strt' | table 1
+	    showabst
+	    echo "<TABLE><TR><TD>"; abstOFF; echo "</TD></TR></TABLE>"
+     else
+	 cat $tLINE | ldisp > $ttLINE
+	 
+	 lnavi
+	 #     mdisp $START $LINES $tLINE
+
+	 if [ "inlinea" = $PAGE ]; then
+	     #	mnavi
+	     cat $ttLINE |table 1
+	     #	marquee
+	 else
+	     mdisp $START $LINES $ttLINE
+	     #     cat $tLINE |table 1
+	 fi
+	 lnavi
+     fi
+} #lhandler
+
+mhandler(){ ### multiple keywords handler
+### rev1.25
+    #    cd $XMLDIR
+#    OPT="multi"
+    keyname=`echo $RES | tr ' ' '_'`
+    tMULTI=${PRDIR}/$keyname
+#    mSCALE=$(( $SCALE * 5 ))
+    flist=`ls *txt|sort -r`
+#    debug "mhandler:$tMULTI"
+    echo -n "${ENHI}Multiple${ENHe} keyword search for <strong>"$RES"</strong>."
+    if [ ! -e $tMULTI ]; then
+	echo -n " [no cache]"
+        (cat $flist 2>/dev/null |mgrep $RES | strongf |head -$SCALE |mfilter > $tMULTI)
+#        (cat $flist 2>/dev/null |mgrep $RES |head -$SCALE |mfilter > $tMULTI) &
+
+	BJOB=$! ### background job's pid
+	count="0"
+	#	while [ ! -e $tMULTI ]; do
+	nLines="0"
+#	while [ $BJOB ] && [ $nLines -lt $(( $FACOTR * 5 )) ]; do
+#	    if [ $tMULTI ]; then
+#		nLines=`wc -l $tMULTI | cut -d' ' -f1`
+#	    fi
+#	    count=$(( $count + 1 ))
+#	done
+	debug "Query mhandler: BJOB:$BJOB, nLINES:$nLines, $count cycles<br>"
+	#### revision 1.27
+    else
+	touch $tMULTI   ### change the priority in the list of Restor Multi
+	echo " [cache]"
+    fi
+    updateHistory "$keyname"
+    if [ "link" = $PAGE ]; then
+#	debug "mhandler: $tMULTI, $linkTmp"
+	#	cat $tMULTI |grep -e '^-' | sed 's/<\/*strong>//g' |
+#	cat $tMULTI |grep -e '^-' | sed 's/<\/*strong>//g' |
+#	    sed 's/<\/*i>//g' |rdictionary | sort -nr > $linkTmp
+	cat $tMULTI |grep -e '^-' | 
+	    rdictionary | sort -nr > $linkTmp
+#	head $linkTmp
+	return
+    fi
+    nFound=`wc -l $tMULTI | cut -d' ' -f1`
+    nFound=$(($nFound / 5 )); nSCALE=$(($SCALE / 5 - 1))
+    echo -n "ELIZA shows $nFound instances during recent 5 years."
+    if [ $nFound -ge $nSCALE ]; then echo " More would be found."; else echo; fi
+    echo "<TABLE><TR><TD>";
+    echo  "Giving ELIZA another keyword in the <strong>link</strong> would narrow down further."
+#    echo  "Giving ELIZA another keyword in the <a href=${CGI}?PAGE=link&RES=$oRES>[link]</a> would narrow down further."
+    echo "</TD>"
+     linkform; echo "</TR></TABLE>"
+    #    display $START $LINES $tMULTI
+    #    debug "$START $LINES"
+    if [ "multia" = $PAGE ]; then
+	mnavi
+	cat $tMULTI |table 1
+#	marquee
+	mnavi
+    else
+	mnavi
+	mdisp $START $LINES $tMULTI
+#	marquee
+	mnavi
+    fi
+} #mhandler
+
+decode(){
+    awk '{
+#	gsub(/%\([0-9a-fA-F]{2}\)/,"\\x\1")
+	gsub(/%/,"\\x")
+	print
+}'
+}  ##decode
+
+elizaClaim(){
+    echo "ELIZA wants a keyword to be set!"
+}
+
+
+######################################
+#### main routine dealing with options
+#### entry point
+pdinitialize
+### pubmeddic main routine **** ELIZA *****
+### pd-cgi default entry
+htmlheader
+debug "QUERY_STRING:${QUERY_STRING}" ## debug
+ARGS=`echo ${QUERY_STRING} |tr '&' ' '`
+debug "QUERY_tr:$ARGS" ## debug
+MOD="search"
+for arg in $ARGS; do
+    value=`echo $arg | cut -d'=' -f2 `
+    if [[ $arg =~ ^PAGE ]]; then PAGE=$value
+    elif [[ $arg =~ ^RES ]]; then RES=$value
+    elif [[ $arg =~ ^OPT ]]; then OPT=$value
+    elif [[ $arg =~ ^START ]]; then START=$value
+    elif [[ $arg =~ ^KWIC ]]; then KWIC=$value
+    elif [[ $arg =~ ^HYP ]]; then HYP=$value
+    elif [[ $arg =~ ^ABS ]]; then ABS=$value
+    elif [[ $arg =~ ^search ]]; then MOD=$value
+    elif [[ $arg =~ ^multi ]]; then MOD=$value
+    elif [[ $arg =~ ^inline ]]; then MOD=$value
+    elif [[ $arg =~ ^wordnet ]]; then MOD=$value
+    elif [[ $arg =~ ^reset ]]; then MOD=$value
+    elif [[ $arg =~ ^ajax ]]; then MOD=$value
+    elif [[ $arg =~ ^SRCH ]]; then SRCH=$value
+    fi
+done
+oRES=$RES   ### save original $RES
+#### rev1.52 is this OK??
+#RES=`echo $RES | tr '+' ' '`
+### remove '+' at the end
+### rev1.77 + as a delimiter
+### rev1.80 
+RES=`echo $RES | sed 's/\+$//' |sed 's/^\+//'`
+debug "$oRES -> $RES"
+#    debug "$RES"
+#    RES=`echo $RES | sed 's/%\([0-9a-fA-F]\{2\}\)/\\x\1/g'`
+#    RES=`echo $RES | sed 's/%\([0-9a-fA-F]\{2\}\)//g'`
+RES=`echo $RES | decode`
+debug "$oRES -decoded> $RES"
+#    debug "$RES"
+RES=`echo -e $RES`
+lastfile=`ls -t $XMLDIR/updates/* |head -1`
+TSTAMP=`date -r $lastfile +%Y-%m-%d`
+debug "ARGS_value:$TSTAMP, MOD=$MOD,PAGE=$PAGE,$KWIC,$START,$OPT,$oRES, $RES" ## debug
+cd $XMLDIR;
+#    if [ ! $1 = '' ]; then
+#    if [ "-k" = $OPT ]; then PAGE="kwic"; fi  ### obsolete
+if [ ! "$START" ]; then START="1"; fi
+if [ ! "$PEND" ]; then PEND="1"; fi
+if [ ! "$KWIC" ]; then KWIC="on"; fi
+if [ ! "$HYP" ]; then HYP="on"; fi
+if [ ! "$ABS" ]; then ABS="off"; fi
+if [ ! "$OPT" ]; then OPT="right"; fi
+if [ ! "$SRCH" ]; then SRCH="strict"; fi
+if [ ! "$oRES" ] && [ ! "$PAGE" ]; then
+    PAGE="eliza";
+else
+    KEY=$"$RES";
+#    KEY=`echo $RES | sed 's/\+$/ /'`
+fi
+if [ ! $LINES ]; then LINES=100; fi
+#### link for multiple key
+if [ ! $OPT ] && [ "kwic" = $PAGE ] ; then OPT="right"; fi
+if [ "InLine" = $MOD ]; then PAGE="inline"; fi
+#    if [ "Multi" = $MOD ]; then PAGE="multi"; fi
+if [ "Multi" = $MOD ]; then PAGE="multi"; OPT="multi"; fi
+if [ "WordNet" = $MOD ]; then PAGE="wordnet"; fi
+if [ "Search" = $MOD ]; then PAGE="kwic"; OPT="right"; fi
+if [ "reset" = $MOD ]; then PAGE="eliza"; RES=""; fi
+LEAP=$(( $LINES * 5 ))
+### interface for javascript
+echo "<div id="PAGE"  class='display-none' value=$PAGE>$PAGE</div>"
+echo "<div id="RES" class='display-none' value=$RES>$RES</div>"
+echo "<div id="KEY" class='display-none' value=$KEY>$KEY</div>"
+echo "<div id="OPT" class='display-none' value=$OPT>$OPT</div>"
+echo "<div id="KWIC" class='display-none' value=$KWIC>$KWIC</div>"
+echo "<div id="ABS" class='display-none' value=$ABS>$ABS</div>"
+echo "<div id="START" class='display-none' value=$START>$START</div>"
+echo "<div id="PEND" class='display-none' value=$PEND>$PEND</div>"
+echo "<div id="LINES" class='display-none' value=$LINES>$LINES</div>"
+echo "<div id="LEAP" class='display-none' value=$LEAP>$LEAP</div>"
+echo "<div id="SRCH" class='display-none' value=$LEAP>$SRCH</div>"
+echo "<div class='infoend'></div>"
+###
+ADDR=`echo $REMOTE_ADDR | tr -d '.'`
+SIGN=`printf "%x" $ADDR`
+PRDIR="/tmp/$SIGN"
+if [ ! -d $PRDIR ]; then mkdir $PRDIR; fi
+if [ ! -d ${PRDIR}/inline ]; then mkdir ${PRDIR}/inline; fi
+if [ ! -d ${PRDIR}/kw ]; then mkdir ${PRDIR}/kw; fi
+if [ ! -d ${PRDIR}/history ]; then mkdir ${PRDIR}/history; fi
+debug "<br>$SIGN, $ADDR,$REMOTE_ADDR, $PAGE,$START,$LINES,$LEAP,$KEY" ## debug
+echo "<div id='heading'>"
+echo "<br>$ENHI$VERSION$ENHe <br>"
+echo "${SUMMARY}<br>"
+echo "<br>"
+echo "</div>" ##heading
+echo "<div id='panel'>"
+inputres; 
+#    echo "</TR></TABLE>"
+echo "<TABLE><TR>"
+cclearform;
+unConcatform;
+concatform;
+historyform;
+echo "</tr></table>"
+echo "<table><tr>"
+kwictoggle; absttoggle;srchtoggle;
+#    hypertoggle;
+echo "</TR></TABLE>"
+echo "<TABLE><TR>"
+elizaform; tripletform; verbform; inlineLinkform; linkform; 
+leftform; rightform;
+fastback; backform; nextform; fastnext; sselform;
+echo "</TR></TABLE>"
+#    debug "startpre:$PAGE,$START,$LINES,$LEAP,$KEY" ## debug
+echo "</div>"  # of panel
+echo "<div id=terminal>"
+echo "<a href=$URL>return</a>"
+### ELIZA (most frequent words) page
+if [ $PAGE = "eliza" ]; then
+    echo "Showing most frequently used words in the PubMed."
+    display $START $LINES $PUBFDIC
+    wordnet "$KEY"
+    ### link words page display
+elif [ $PAGE = "triplet" ]; then
+    ### triplet page
+    echo -e "Showing most frequently used ${EI}triplet words${Ee} in the PubMed."
+    display $START $LINES $PUBFNDIC 3;
+    wordnet "$KEY"
+elif [ $PAGE = "verb" ]; then
+    ### verb page
+    echo -e "Showing most frequently used ${EI}verbs${Ee} in the PubMed."
+    display $START $LINES $PUBFVDIC;
+    wordnet "$KEY"
+elif [ $PAGE = "link" ]; then
+    if [ "$KEY" ]; then
+	### right place ?
+	KEYNAME=`echo $KEY|tr " " "_"`
+	case $OPT in
+	    "inline" ) linkTmp=$TMPFinline$KEYNAME;;
+	    "multi"  ) linkTmp=$TMPFmulti$KEYNAME;;
+	    * ) linkTmp=$TMPF$KEYNAME;;
+	esac
+	#### deal with multiple key
+	wcount=`echo "$KEY" | wc -w`
+	if [ $OPT ] && [ "inline" = $OPT ]; then
+	    linkTmp=$TMPFinline$KEYNAME;
+	    lhandler   ### make $linkTmp
+	elif [ $wcount -lt  3 ]; then
+	    INFO=`cat $PUBFDIC|grep -in -m1 -e "$KEY"`
+	    INFO1=`echo $INFO| cut -d' ' -f1`
+	    ORDER=`echo $INFO1| cut -d':' -f1`
+	    FREQ=`echo $INFO1| cut -d':' -f2`
+	    if [ ! $FREQ ] || [  $FREQ -lt $THRESH ]; then
+		echo -n "$KEY($FREQ): rare keyword. "
+		echo "Then, ELIZA executes multilple keyword search."
+		linkTmp=$TMPFmulti$KEYNAME;
+		mhandler   ### make $linkTmp
+		OPT="multi"
+	    fi
+	elif [ $wcount = 3 ]; then  ### triplet words
+	    INFO=`cat $PUBFNDIC|grep -in -m1 -e "$KEY"`
+	    INFO1=`echo $INFO| cut -d' ' -f1`
+	    ORDER=`echo $INFO1| cut -d':' -f1`
+	    FREQ=`echo $INFO1| cut -d':' -f2`
+	    if [ ! $FREQ ] || [  $FREQ -lt $THRESH ]; then
+		echo -n "$KEY($FREQ): rare keyword. "
+		echo "Then, ELIZA executes multilple keyword search."
+		linkTmp=$TMPFmulti$KEYNAME;
+		mhandler   ### make $linkTmp
+		OPT="multi"
+	    fi
+	else
+	    echo -n "ELIZA executes multilple ($wcount) keyword search."
+	    linkTmp=$TMPFmulti$KEYNAME;
+	    mhandler   ### make $linkTmp
+	    OPT="multi"
+	fi
+	debug "wcount: $wcount"
+	##### multiple keys
+	#	    debug "link:$KEY, $linkTmp"
+	#	    ORDER=`getOrder $KEY`
+	if [ $OPT ] && [ $OPT = "inline" ]; then
+	    echo -n "<strong>InLine</strong> analysis "
+	fi
+	echo -ne "showing words linking to ${EI}$KEY${Ee} (rank:$ORDER):"
+	### move up for multiple keywords
+	#	    KEYNAME=`echo $KEY|tr " " "_"`
+	#	    linkTmp=$TMPF$KEYNAME
+	#### if kwic cache is present
+	KWICLINE="${TMPLINE}${KEYNAME}_"
+	if [ -e $KWICLINE ]; then
+	    cat $KWICLINE | awk 'BEGIN{FS="_:_"}{print $2}'|
+		rdictionary | sort -nr > $linkTmp
+	elif [ ! -e $linkTmp ]; then
+	    INPF=${PUBF}*.txt
+	    cat $INPF | grepline "$KEY" |rdictionary |
+	    	sort -nr > $linkTmp
+	    BJOB=$!
+	fi
+	debug "uHist: $KEYNAME"
+	updateHistory "$KEYNAME"
+	found=`wc -l $linkTmp|awk '{print $1}'`
+	echo -e " $found found"
+    	display $START $LINES $linkTmp 3 on
+	hint
+	wordnet $KEY
+    else
+	elizaClaim;
+	PAGE="eliza"
+    fi
+    ### end of link
+elif [ $PAGE = "kwic" ]; then
+    KEY="$RES"
+    if [ "$KEY" ]; then
+	if [ $OPT ]; then kwichandler "$KEY"; fi
+	KEYNAME=`echo $KEY | tr ' ' '_'`
+	updateHistory "$KEYNAME"
+    else
+	elizaClaim
+	PAGE="eliza"
+    fi
+elif [ "wordnet" = $PAGE ]; then
+    if [ "$KEY" ]; then
+	wordnet $KEY
+    else
+	elizaClaim
+	PAGE="eliza"
+    fi
+elif [ "inline" = $PAGE ] || [ "inlinea" = $PAGE ]; then
+    if [ "$KEY" ]; then
+    lhandler
+    debug "BJOB:"$BJOB
+    echo "<TABLE><TR>"
+    fastback; backform; nextform; fastnext;sselform;
+    echo "</TR></TABLE>"
+    else elizaClaim; fi
+elif [ "multi" = $PAGE ] || [ "multia" = $PAGE ]; then
+    if [ "$KEY" ]; then
+    mhandler
+    debug "BJOB:"$BJOB
+    echo "<TABLE><TR>"
+    #	elizaform; verbform; linkform;
+    fastback; backform; nextform; fastnext;sselform;
+    echo "</TR></TABLE>"
+    else elizaClaim; fi
+elif [ "cclear" = $PAGE ]; then
+    cclear
+fi
+updateHistory "$KEYNAME"
+htmlfooter
+exit

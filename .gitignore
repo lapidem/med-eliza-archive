@@ -1,0 +1,31 @@
+# med-ELIZA .gitignore
+
+# 一時ファイル・キャッシュ
+/tmp/*
+/tmp/pd/*
+/tmp/kw/*
+*.tmp
+*~
+
+# 設定ファイル（本番用は除外）
+pd.conf
+
+# データ本体（別途アーカイブするため除外）
+pubmedxml/
+*.txt
+*.dic
+gene-utf8.txt
+
+# ログ・バックアップ
+*.log
+*.bak
+*.old
+
+# OS関連
+.DS_Store
+Thumbs.db
+
+# 編集用一時ファイル
+*.swp
+*.swo
+*#
