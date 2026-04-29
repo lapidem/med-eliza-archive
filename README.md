@@ -10,81 +10,81 @@ ELIZA cgi-bash version **rev. 1.91**
 
 ---
 
-## 概要
+## Overview
 
-**med-ELIZA** は、PubMedの論文アブストラクト全体を対象とした高速キーワード連結検索ツールです。
+**med-ELIZA** is a fast keyword association search tool for the entire PubMed abstract corpus.
 
-PubMed Zipped Archive（テキスト形式）をインデックス化し、以下の4段階検索を瞬時に行えます：
+It works on the PubMed Zipped Archive (text format) and provides **four-level search**:
 
-- **KWIC** — キーワードの左右文脈（共起語頻度付き）
-- **InLine** — 複数キーワードが**同じ文**に出現
-- **Multi** — 複数キーワードが**同じアブストラクト**に出現
-- **Link** — 関連語（共起語）分析
+- **KWIC** — Keyword In Context (with frequency of neighboring words)
+- **InLine** — Multiple keywords appearing in the **same sentence**
+- **Multi** — Multiple keywords appearing in the **same abstract**
+- **Link** — Analysis of associated / co-occurring words
 
-医療論文執筆、文献レビュー、用語研究に最適です。
-
----
-
-## 特徴
-
-- 純粋Bash + Awk で書かれた軽量CGI（外部DB不要）
-- ユーザーごとのプライベートキャッシュ（`/tmp/`）
-- Ajax対応UI（jQuery）
-- WordNet・Gene辞書連携
-- Triplet words / Verb dictionary 対応
-- Strict / Loose 検索モード切替
-- 履歴・restore機能
+Extremely useful for medical paper writing, literature reviews, and terminology research.
 
 ---
 
-## ファイル構成
+## Features
+
+- Lightweight CGI written in pure **Bash + Awk** (no external database required)
+- Private per-user cache (`/tmp/`)
+- Ajax UI with jQuery
+- Integration with WordNet and Gene dictionary
+- Triplet words and Verb dictionary support
+- Strict / Loose search mode
+- History and restore function
+
+---
+
+## File Structure
 
 ```bash
 med-eliza/
-├── pd-cgi                  # 本体スクリプト（実行権限必要）
-├── pd.conf.example         # 設定ファイル見本
-├── install.sh              # インストールスクリプト
+├── pd-cgi                  # Main script (needs execute permission)
+├── pd.conf.example         # Configuration template
+├── install.sh              # Installation script
 ├── README.md
 ├── LICENSE
 ├── docs/
-│   └── architecture.md     # 内部構造解説（後日追加）
-├── scripts/                # データ更新用スクリプト（任意）
-└── pubmedxml/              # ← ここにPubMed *.txt を置く
+│   └── architecture.md     # Detailed architecture (optional)
+├── scripts/                # Optional update scripts
+└── pubmedxml/              # ← Put your PubMed *.txt files here
 ```
 
 ---
 
-## クイックスタート
+## Quick Start
 
-### 1. リポジトリをクローン
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/yourname/med-eliza-archive.git
 cd med-eliza-archive
 ```
 
-### 2. インストール
+### 2. Install
 
 ```bash
 chmod +x install.sh
 ./install.sh
 ```
 
-### 3. 設定
+### 3. Configuration
 
 ```bash
 cp pd.conf.example pd.conf
-# 必要に応じて pd.conf を編集（特に XMLDIR）
+# Edit pd.conf (especially XMLDIR)
 ```
 
-### 4. PubMedデータの配置
+### 4. Place PubMed Data
 
-pubmedxml/ フォルダに以下のファイルを置いてください：
+Put your files in the `pubmedxml/` directory:
 
-- pubmed*.txt（PubMed Zipped Archive をテキスト変換したもの）
-- gene-utf8.txt（任意）
+- pubmed*.txt (converted PubMed Zipped Archive)
+- gene-utf8.txt (optional)
 
-### 5. Apacheへの配置（例）
+### 5. Deploy on Apache (example)
 
 ```bash
 sudo cp pd-cgi /usr/lib/cgi-bin/pd-cgi
@@ -93,34 +93,32 @@ sudo chmod 755 /usr/lib/cgi-bin/pd-cgi
 sudo systemctl restart apache2
 ```
 
-その後、http://your-server/cgi-bin/pd-cgi にアクセスしてください。
+Then access: http://your-server/cgi-bin/pd-cgi
 
 ---
 
-## ライセンス
+## License
 
-MIT License（商用利用・改変・再配布自由）
-
----
-
-## 元サイト
-
-[https://med-eliza.pw/](https://med-eliza.pw/) （2026年閉鎖予定）
+MIT License (free to use, modify, and distribute)
 
 ---
 
-## 作者
+## Original Site
+
+[https://med-eliza.pw/](https://med-eliza.pw/) (scheduled to close in 2026)
+
+---
+
+## Author
 
 - **lapidem** (Qus)
-- 作成年：2019〜2025
+- Years: 2019–2025
 
 ---
 
-## 貢献・連絡
+## Contribution
 
-このアーカイブは**公開保存用**です。 バグ報告・機能改善のPull Requestは大歓迎です！
-
-GitHub Issues または X（旧Twitter）でご連絡ください。
+This repository is an **archive** for long-term preservation. Bug reports and Pull Requests are welcome!
 
 ---
 

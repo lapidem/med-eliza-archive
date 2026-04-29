@@ -29,3 +29,9 @@ Thumbs.db
 *.swp
 *.swo
 *#
+
+# macOS
+.DS_Store
+
+# 日本語版READMEも明示的に残す
+!README.ja.md
