@@ -1,0 +1,408 @@
+#!/bin/bash
+### pubmed rev2.1
+### uses pubmed-engine
+### 2.1: pubmed -s
+### 2.2: pubmed -c
+### 2.3: pubmed -u
+### 2.4: pubmed -u: now supports updates files
+### 2.5: pubmed -u: now include pubmed-updates -a
+### 2.6: pubmed -U: update for last 5 years
+
+OPT=$1
+XML=$2
+FTPSITE="ftp://ftp.ncbi.nlm.nih.gov/pubmed/baseline/"
+TMPLIST="/tmp/pubmedxml.lst"
+PUBXML2TXT="/tmp/pubxml2txt"
+XMLDIR="$HOME/pubmedxml/"
+XMLLIST="$HOME/pubmedxml/pubmedxml.lst"
+LOG="/tmp/pubmed.log"
+PUBYEAR="pubyear"
+PUBF="pubf" #compile pub file base name
+
+help(){
+        echo "If you not yet downloaded the pubmed database, run pubmed -a."
+	echo "pubmed: pubmed -l; get list of the ftp site"
+	echo "        pubmed -d; download pubmed xml files in $XMLDIR"
+	echo "        pubmed -p; pack pubmed.xml to pub files"
+	echo "        pubmed -P; download & pack simultaneously saving space "
+	echo "        pubmed -y; make $PUBYEAR file"
+	echo "        pubmed -a; automatically download and update pub files"
+	echo "        pubmed -s year; return pub files dealing a year"
+	echo "        pubmed -c year; select and compile pub of a year"
+	echo "        pubmed -u year; update downloads, and update txt of a year"
+	echo "        pubmed -U; automatically update for last 5 years"
+	echo "        pubmed -m; mummy pub files except last 5 years"
+	exit
+}
+
+pyear(){
+    awk '
+    BEGIN { min = 3000 }
+    /^%/{ for(i=1; i<=NF; i++)
+	    if($i ~ /^[0-9]{4}$/) {
+		year=$i; break
+	    }
+	if( year &&  year > max ) max = year
+	if( year &&  year < min ) min = year
+    }
+    END { printf(" %d %d\n", min, max ) }
+    ' - 
+}
+
+selpub(){
+    awk -v year=$YEAR -v pubyear=$PUBYEAR '
+    BEGIN{
+	while (getline < pubyear){
+	    min= $2; max=$3
+	    if( year >=min && year <=max ){
+		flist = flist " " $1
+	    }
+	}
+	print flist
+	close (pubyear)
+    }
+    '
+}
+
+update(){
+    ### suppose updates-pub files in updates/ directory.
+    ### make pubfYEAR_u.txt
+    if [ -d $XMLDIR ]; then
+	cd $XMLDIR
+    else
+	echo "Oops! Please make $XMLDIR first."
+	help
+    fi
+    OUTF="pubf"$1"_u.txt"
+    if [ -e $OUTF ]; then
+	echo "updating $OUTF"
+    else
+	echo "making $OUTF"
+	touch $OUTF
+    fi
+    flist=`ls updates/*pub`
+    cat $flist | awk -v year=$1 '
+    BEGIN {
+	### read pmid and calculate the number of records from infile of a year
+	infile = "pubf" year ".txt"
+	outfile = "pubf" year "_u.txt"
+	serial=1
+	printf ("reading %s ... ", infile)
+	while( getline < infile){
+	    if(/^#/) {
+		pmid = $2; id[pmid]++;
+		serial++
+	    }
+	}
+	printf("%\047d records\n", serial)
+	close(infile)
+	printf ("reading %s ... ", outfile)
+	while( getline < outfile){
+	    if(/^#/) {
+		pmid = $2; id[pmid]++;
+		serial++
+	    }
+	}
+	printf("%\047d records\n", serial)
+	close(outfile)
+	total = serial
+	serial--
+    }
+    /^#/ { ### check if pmid is already registered, if not set *add* flag.
+	if(id[$2] == 0) {
+	    pmid=$2; add=1; id[pmid]++;
+	}
+    }
+    /^%/{ ### seek year, if the year is not targeted year, set *skip* flag.
+	for(i=1; i<=NF; i++)
+	    if($i ~ /^[0-9]{4}$/) {
+		PaperYear=$i; break
+	    }
+	if ( PaperYear != year ) skip = 1
+	so = $0
+    }
+    /^\*/{ title = $0 }
+    /^-/{
+	abstract = $0
+#	printf("%\047d\ records \r",total)
+	printf("%\047d records \r",total)
+	if(!skip && add){
+	    printf("# %d %\047d/%\047d\n", pmid,total,serial) >> outfile
+	    print so >> outfile
+	    print title >> outfile
+	    print abstract >> outfile
+	    print "" >> outfile
+	    total++
+	}
+	skip = 0; add = 0
+    }
+    END { print; close(outfile) }
+    '
+}
+
+### duplicated pmid entries were usually for in other language
+### and these are consequenced by non-English Abstract
+### or by comments
+### therefore, abstracts revised && id[pmid]>1 were omitted
+compile(){
+    flist=`pubmed -s $1`
+#    echo `date "+%Y/%m/%d %H:%m"; pwd` "pubmed -c " >> $LOG
+    cat $flist | awk -v year=$1 '
+    BEGIN{ cnt=indexed=0
+    	outfile = "pubf" year ".txt"
+#	echo "" > outfile
+	print "" > outfile
+	print "compiling ", outfile
+    }
+    /^#/{
+	pmid = $2; snop=sno; sub(/\/[0-9,]+$/,"",$3); sub(",","",$3); sno=$3
+	if(id[pmid])  revised = 1
+	id[pmid]++; cnt++
+    }
+    /^%/{ for(i=1; i<=NF; i++)
+	    if($i ~ /^[0-9]{4}$/) {
+		PaperYear=$i; break
+	    }
+	if ( PaperYear != year ) skip = 1
+	sop=so[pmid]; so[pmid]=$0
+    }
+    /^\*/{ titlep=title[pmid]; title[pmid]=$0;}
+    /^-/{ abstractp=abstract[pmid]; abstract[pmid]=$0
+	if (skip || (revised && id[pmid]>1 && sno == snop+1)){
+	    revised =0; skip = 0
+	}else{
+   	    serial++
+	    printf("# %d %\047d/%\047d\n", pmid,serial,cnt) >> outfile
+	    print so[pmid] >> outfile
+	    print title[pmid] >> outfile
+	    print abstract[pmid] >> outfile
+	    print "" >> outfile
+	}
+	system("")
+    }
+    { printf("compiling pmid:%d\r",pmid) }
+    END {
+	close (outfile)
+	for (PMID in id) { indexed++ }
+	printf("%\047d indexed/%d: %\047d revised\n",
+	       indexed, cnt, cnt-indexed)
+    }
+    '
+#	'| tee -a $LOG
+}
+
+if [[ $OPT =~ ^- ]]; then
+    if [ ! -d $XMLDIR ]; then
+	echo "$XMLDIR not found"
+	echo -n "Shall I make $XMLDIR (y/N)? "
+	read RES
+	if [ "y" = $RES ]; then
+	    mkdir $XMLDIR
+	else
+	    help
+	fi
+    fi
+    cd $XMLDIR
+    if [ $OPT = "-a" ]; then
+        pubmed -l; pubmed -d; pubmed -p; pubmed -y
+        exit
+    elif [ $OPT = "-l" ]; then
+	echo "pubmed xml list is going to be retrieved from $FTPSITE in $TMPLIST"
+	FILES=`curl $FTPSITE |
+		egrep xml.gz$ |
+		awk '{ print $9}' |
+		sort -nr`
+	echo $FILES > $TMPLIST
+	echo "pubmed xml list was retrieved in $TMPLIST"
+#	less $TMPLIST
+	exit
+    elif [ $OPT = "-d" ]; then
+	if [ -e $TMPLIST ]; then		
+	    cd $XMLDIR
+	    for file in `cat $TMPLIST`; do
+		xml=`echo $file | sed 's/.gz//'`
+    		pub=`echo $xml | sed 's/xml/pub/'`
+		if [ -e $pub ]; then
+		    echo "$pub exists. skip!"
+		elif [ ! -e $xml ]; then
+		    curl -O ${FTPSITE}$file
+		    gunzip -d $file
+		else
+    		    echo $xml "exits. skip"
+		fi
+    	    done
+	    exit
+	else
+	    echo "get list using pubmed -l, then pubmed -d"
+	    exit
+	fi
+    elif [ $OPT = "-y" ]; then
+	if [ -e $PUBYEAR ]; then
+	    exit
+	    ### now not overwrite
+	    echo -n $PUBYEAR "already exists. Continue? (y/n)"
+	    read RES
+	    if [ $RES != 'y' ]; then
+		exit
+	    fi
+	fi
+	echo "" > $PUBYEAR
+	for file in `ls *pub`; do
+	    echo -n $file |tee -a $PUBYEAR
+	    cat $file |pyear |tee -a $PUBYEAR
+	done
+	exit
+    elif [ $OPT = "-p" ]; then
+#	cd $XMLDIR
+	ls pubmed*xml >/dev/null 2>&1
+	if [ $? -eq 0 ]; then
+	    xmlfiles=`ls pubmed*xml`
+	else
+	    exit
+	fi
+	for xml in $xmlfiles; do
+	    pub=`echo $xml | sed 's/xml/pub/'`
+	    if [ -e $pub ]; then
+		echo "$pub exists. skip!"
+	    else
+		echo -n "converting $xml -> $pub"
+		cat $xml |pubmed-engine > $pub
+		echo ": done."
+		#		    mv $xml ./trash/
+		rm $xml
+	    fi
+	done
+	exit
+	### saving space, though -l, -a, -p  simultaneouly
+	### -P: -l, -d, -p
+    elif [ $OPT = "-P" ]; then
+	if [ ! -d $XMLDIR ]; then
+	    echo "$XMLDIR not found"
+	    echo -n "Shall I make $XMLDIR (y/N)? "
+	    read RES
+	    if [ "y" = $RES ]; then mkdir $XMLDIR; else	help; fi
+	fi
+	##### pubmed -l part
+	echo "pubmed xml list is going to be retrieved from $FTPSITE in $TMPLIST"
+	FILES=`curl $FTPSITE |egrep xml.gz$ |
+		awk '{ print $9}' | sort -nr`
+	echo $FILES > $TMPLIST
+	echo "pubmed xml list was retrieved in $TMPLIST"
+	#### pubmed -l part end/ -d part start
+	cd $XMLDIR
+	for file in `cat $TMPLIST`; do
+	    xml=`echo $file | sed 's/.gz//'`
+    	    pub=`echo $xml | sed 's/xml/pub/'`
+	    if [ -e $pub ]; then
+		echo "$pub exists. skip!"
+	    elif [ ! -e $xml ]; then
+    		echo "downloading $file"
+		curl -O ${FTPSITE}$file
+		gunzip -d $file
+		echo -n "converting $xml -> $pub"
+		cat $xml |pubmed-engine > $pub
+		echo ": done."
+		rm $xml
+	    else
+    		echo-n $xml "exits. "
+		echo -n "converting $xml -> $pub"
+		cat $xml |pubmed-engine > $pub
+		echo ": done."
+		rm $xml
+	    fi
+    	done
+	exit
+    elif [ $OPT = "-c" ]; then
+	if [[ $2 =~ ^[0-9]{4}$ ]]; then
+	    PUBF="pubf${2}.txt"
+	    if [ -e $PUBF ]; then
+		echo "$PUBF exist. quit"
+	    else
+		compile $2
+	    fi
+	    exit
+	else
+	    help
+	fi
+    elif [ $OPT = "-u" ]; then
+	if [[ $2 =~ ^[0-9]{4}$ ]]; then
+	    pubmed-updates -a
+	    update $2
+	    exit
+	else
+	    help
+	fi
+    elif [ $OPT = "-s" ]; then
+	if [[ $2 =~ ^[0-9]{4}$ ]]; then
+	    if [ ! -e $PUBYEAR ]; then
+		echo "make $PUBYEAR by pubmed -y, then come back again"
+		help
+	    fi
+	    YEAR=$2
+	    selpub
+	    exit
+	else
+	    help
+	fi
+    elif [ $OPT = "-U" ]; then
+	echo "updating pubf*.txt for last 5 years"
+	THISYEAR=`date +%Y`
+	STARTYEAR=$(( $THISYEAR - 4 ))
+	pubmed-updates -a
+	for y in `seq $STARTYEAR $THISYEAR`; do
+	    pubmed -c $y
+	    update $y
+	done
+	exit
+    elif [ $OPT = "-m" ]; then
+	echo "mummy pubfiles except last 5 years"
+	THISYEAR=`date +%Y`
+	STARTYEAR=$(( $THISYEAR - 4 ))
+	flist=$(cat $PUBYEAR |
+	    awk -v starty=$STARTYEAR '
+#	    $3 < starty {print $1, $0}
+	    $3 < starty {print $1}
+	    ')
+	for fname in $flist; do
+#	    echo $fname
+	    mummy $fname
+	done
+#	echo "$STARTYEAR"
+	exit
+	pubmed-updates -a
+	for y in `seq $STARTYEAR $THISYEAR`; do
+	    pubmed -c $y
+	    update $y
+	done
+	exit
+    else
+	help
+    fi	
+fi
+
+if [ ! -e $XMLDIR ]; then
+    echo "$XMLDIR not found"
+    help
+fi
+
+### main of pubmed
+
+#cat `ls ${XMLDIR}*.xml|sort -r` |
+cat `ls ${XMLDIR}*.pub|sort -r` |
+#    pubmed-engine $@ |
+    awk '
+    BEGIN{
+	ENHI="\033[01m" #intense
+	ENH="\033[07m" #reverse
+	ENHe="\033[00m"
+    }
+    {if(/^\*/){
+	    print ENHI $0 ENHe
+	}else {print}
+#	system("")
+    }
+    '|
+    lint|
+    tee $PUBXML2TXT |
+    less -ir -p $@
+exit

@@ -1,0 +1,6 @@
+For making PubMed*.txt, use pubmed.
+Please Refer pubmed -h.
+
+crontab example:
+put pubmed in /usr/local/bin
+11 7 * * * /usr/local/bin/pubmed -U > /tmp/pubmed.log 2>> /tmp/pubmed.error.log
